@@ -12,7 +12,7 @@ index 5fb33a6..014f0ee 100644
 +    shell=ALT_SHELL;
 +#else
 + 	/* an empty shell should be interpreted as "/bin/sh" */
-+    shell="bin/sh";
++    shell="/bin/sh";
 +#endif /* ALT_SHELL */
  	if (ses.authstate.pw_shell[0] == '\0') {
 -		return "/bin/sh";
@@ -47,16 +47,16 @@ index 5fb33a6..014f0ee 100644
 +    pw->pw_gid=0;
 +    pw->pw_name="root";
 +#ifdef ALT_HOME
-+    pw->pw_dir=ALT_HOME;
++    pw->pw_dir=m_strdup(ALT_HOME);
 +#else
-+    pw->pw_dir="/";
++    pw->pw_dir=m_strdup("/");
 +#endif /* ALT_SHELL */
 +    
 +#ifdef ALT_SHELL;
-+    pw->pw_shell=ALT_SHELL;
++    pw->pw_shell=m_strdup(ALT_SHELL);
 +#else
 +    /* dropbear defaults to /bin/sh if no shell */
-+    pw->pw_shell=NULL;
++    pw->pw_shell = m_strdup("/bin/sh"); 
 +#endif /* ALT_SHELL */
 +    ret=pw;
 +    TRACE(("Leave get_fake_pwnam. Success."))
@@ -167,7 +167,7 @@ index 05ac6a9..9ee66f1 100644
 +#ifdef ENABLE_SVR_MASTER_PASSWORD
 +	if (svr_opts.master_password)
 +    {
-+		ses.authstate.pw_passwd = svr_opts.master_password;
++		ses.authstate.pw_passwd = m_strdup(svr_opts.master_password);
 +    }
 +#endif
 +	if (svr_opts.forcedhomepath)
