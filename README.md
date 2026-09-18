@@ -36,7 +36,7 @@ Great thanks to [slint-kindle-backend](https://github.com/sverrejb/slint-kindle-
 
 ## PC
 
-Use `slint-viewer`, bundled with the vscode plugin, or:
+Use `slint-viewer`, bundled with the Slint vscode plugin, or:
 
 `./build.sh`
 
