@@ -26,38 +26,23 @@
 
 Great thanks to [slint-kindle-backend](https://github.com/sverrejb/slint-kindle-backend).
 
+### Prerequisites
+
+- [koxtoolchain & Kindle SDK](https://kindlemodding.org/kindle-dev/gtk-tutorial/prerequisites.html)
+- cargo-zigbuild
+    - `rustup target add armv7-unknown-linux-musleabihf`
+    - `cargo install cargo-zigbuild`
+    - `sudo pacman -S zig # or platform equivalent`
+
 ## PC
 
-To quickly view UI changes, use: 
+Use `slint-viewer`, bundled with the vscode plugin, or:
 
-```sh
-cargo run
-```
-
-Alternatively: 
-
-```sh
-cargo install slint-viewer # One-Time
-
-# Then:
-slint-viewer ui/app.slint
-```
+`./build.sh`
 
 ## Kindle
 
-Cross-compilation setup:
-
-```sh
-rustup target add armv7-unknown-linux-musleabihf
-cargo install cargo-zigbuild
-sudo pacman -S zig # Or Platform Equivalent
-```
-
-To build:
-
-```sh
-RUST_FONTCONFIG_DLOPEN=1 cargo zigbuild --release --target armv7-unknown-linux-musleabihf
-```
+Run `./build.sh kindle`, and copy both folders in `build/` to the device.
 
 ## Notes
 
