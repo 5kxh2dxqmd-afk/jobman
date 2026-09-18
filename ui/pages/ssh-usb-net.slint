@@ -1,15 +1,13 @@
 import { Button } from "../button.slint";
 
-export component EnvironmentUpdate inherits Rectangle {
-    in-out property <bool> updating-env: false;
+export component SSHUsbNet inherits Rectangle {
     in property <length> root-height;
-    in property <bool> wifi-status: false;
 
-    callback update-environment();
+    callback toggle-ota();
 
     VerticalLayout {
         height: root-height * 0.27;
-        y: root-height * 0.1;
+        y: root-height * 0.07;
         alignment: center;
         spacing: root-height * 0.02;
 
@@ -21,26 +19,31 @@ export component EnvironmentUpdate inherits Rectangle {
             font-family: "Inter";
             horizontal-alignment: center;
             vertical-alignment: center;
-            text: root.updating-env ? "Please wait..." : (root.wifi-status ? "Click below to update the jailbreaking environment:" : "Please exit Jobman and turn on Wi-Fi to proceed.");
+            text: "SSH networking is currently disabled.";
         }
 
         HorizontalLayout {
             alignment: center;
 
-            Button {
-                root-height: root-height;
-                text: "Upgrade Environment";
-                disabled: !root.wifi-status || root.updating-env;
-                width: root-height * 0.5;
-                clicked => {
-                    root.updating-env = true;
-                    root.update-environment();
+            VerticalLayout {
+                spacing: root-height * 0.02;
+
+                Button {
+                    root-height: root-height;
+                    text: "Enable USB SSH";
+                    width: root-height * 0.5;
+                }
+
+                Button {
+                    root-height: root-height;
+                    text: "Enable Wi-Fi SSH";
+                    width: root-height * 0.5;
                 }
             }
         }
 
         Text {
-            text: "Update periodically as you see fit. All updates are triggered manually.";
+            text: "IP: 192.168.1.1\nMode: N/A (please select)\nConfig is mandated in ~/jobman/ssh.properties";
             color: #4b5563;
             wrap: word-wrap;
             width: 100%;

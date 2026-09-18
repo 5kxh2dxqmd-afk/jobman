@@ -1,6 +1,7 @@
 slint::include_modules!();
 use std::path::Path;
 use std::process::Command;
+use std::env;
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
@@ -25,6 +26,7 @@ fn main() {
     let version = env!("CARGO_PKG_VERSION");
     app.set_jobman_version(version.into());
 
+    app.set_boot_mode(recovery_status());
     app.set_ota_status(ota_status());
     app.set_wifi_status(wifi_status());
     match battery_health() {
@@ -37,7 +39,6 @@ fn main() {
             app.set_show_error(true);
         }
     }
-
 
     let app_weak = app.as_weak(); //No memory leaks
     let toggle_weak = app_weak.clone();
@@ -85,6 +86,10 @@ fn main() {
 }
 
 //UI backend
+fn recovery_status() -> bool {
+    env::args().any(|arg| arg == "--recovery" || arg == "-r")
+}
+
 fn ota_status() -> bool {
     Path::new("/usr/bin/otav3").try_exists().unwrap_or(false)
 }
@@ -110,6 +115,7 @@ fn chattr_path() -> &'static str {
     }
 }
 
+//Nothing here is ever ran in recovery!
 fn block_ota() -> Result<(), String> {
     let chattr = chattr_path();
 
@@ -197,6 +203,10 @@ fn original_mah_round(rough: f64) -> f64 {
 }
 
 fn battery_health() -> Result<i32, String> {
+    if recovery_status() {
+        return Ok(100) //Don't run commands on app launch in recovery environment -- will fail anyway
+    }
+
     let mah = sh("gasgauge-info -m", "Failed to retrieve battery mAh")?;
     let capav = sh("lipc-get-prop com.lab126.powerd battLevel", "Failed to retrieve battery capacity")?;
     let original_mah = sh("cat /sys/class/power_supply/bd*_bat/charge_full_design", "Failed to read battery initial capacity")?;

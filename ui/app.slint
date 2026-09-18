@@ -4,6 +4,7 @@ import { UpdateBlocking } from "pages/update-blocking.slint";
 import { BatteryHealth } from "pages/battery-health.slint";
 import { EnvironmentUpdate } from "pages/environment-update.slint";
 import { Background } from "background.slint";
+import { SSHUsbNet } from "pages/ssh-usb-net.slint";
 
 /*
     This project scales relative to root.height, 
@@ -13,6 +14,8 @@ import { Background } from "background.slint";
 export component AppWindow inherits Window {
     background: white;
 
+    in property <bool> boot-mode: false;
+    in property <string> boot-reason: "N/A";
     in property <string> jobman-version: "1.0.0";
     in property <bool> ota-status: false;
     in property <bool> wifi-status: false;
@@ -89,7 +92,7 @@ export component AppWindow inherits Window {
         Text {
             x: 0;
             width: parent.width;
-            text: "Your Friendly Jailbreaking Manager";
+            text: root.boot-mode ? "Your Friendly Recovery Menu" : "Your Friendly Jailbreaking Manager";
             font-family: "Inter";
             font-size: root.width * 0.04;
             color: black;
@@ -101,12 +104,12 @@ export component AppWindow inherits Window {
     Rectangle {
         x: root.width * 0.05; //Left margin 
         width: root.width * 0.9; //100% - 5% ^ - 5%.
-        y: root.height * 0.41;
+        y: root.height * 0.37;
 
         if view == "home": VerticalLayout {
             spacing: root.height * 0.01; 
 
-            Card {
+            if !root.boot-mode: Card {
                root-height: root.height;
                title: "Update Blocking";
                description: "Manage the enabling & disabling of OTA binaries";
@@ -114,20 +117,45 @@ export component AppWindow inherits Window {
             }
 
             Card {
+                root-height: root.height;
+                title: "SSH & USB Networking";
+                description: root.boot-mode ? "Start an emergency SSH over USB server" : "Start an SSH server over USB or Wi-Fi";
+                clicked => { root.view = "ssh-usb-net" }
+            }
+
+            if root.boot-mode: Card {
+                root-height: root.height;
+                title: "Mount Userstore";
+                description: "Mount the Kindle over USB";
+            }
+
+            if root.boot-mode: Card {
+                root-height: root.height;
+                title: "Wipe Userstore";
+                description: "Recreate the userstore (/mnt/us)";
+            }
+
+            if root.boot-mode: Card {
+                root-height: root.height;
+                title: "Reboot to Jobman";
+                description: "Exit & reboot back to Jobman recovery";
+            }
+
+            if !root.boot-mode: Card {
                root-height: root.height;
                title: "Environment Update";
                description: "Update the jailbreaking environment";
                clicked => { root.view = "environment-update" }
             }
 
-            Card {
+            if !root.boot-mode: Card {
                root-height: root.height;
                title: "Battery Health";
                description: "Automatic battery checking utility";
                clicked => { root.view = "battery-health" }
             }
 
-            Card {
+            if !root.boot-mode: Card {
                root-height: root.height;
                title: "Update Jobman";
                description: "Check for jailbreak manager updates";
@@ -141,6 +169,10 @@ export component AppWindow inherits Window {
             toggle-ota => {
                 root.toggle_ota();
             }
+        }
+
+        if view == "ssh-usb-net": SSHUsbNet {
+            root-height: root.height;
         }
 
         if view == "environment-update": EnvironmentUpdate {
@@ -160,9 +192,9 @@ export component AppWindow inherits Window {
 
     Text {
         x: 0;
-        y: root.height * 0.95;
+        y: root.boot-mode ? root.height * 0.87 : root.height * 0.95;
         width: parent.width;
-        text: "Made by KindleTweaks | v" + root.jobman-version;
+        text: root.boot-mode ? "Reason: " + root.boot-reason + "\nhttps://kindlemodding.org/recovery\nMade by KindleTweaks | v" + root.jobman-version : "Made by KindleTweaks | v" + root.jobman-version;
         font-size: root.width * 0.03;
         color: #4b5563;
         horizontal-alignment: center;
