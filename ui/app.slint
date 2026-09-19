@@ -15,12 +15,14 @@ export component AppWindow inherits Window {
     background: white;
 
     in property <bool> boot-mode: false;
-    in property <string> kindle-ssh-ip: "N/A";
+    in property <string> usb-ssh-ip: "N/A";
+     in property <string> wifi-ssh-ip: "N/A";
     in property <string> boot-reason: "N/A";
     in property <string> jobman-version: "1.0.0";
     in property <bool> ota-status: false;
     in property <bool> wifi-status: false;
     in property <bool> usb-ssh-status: false;
+    in property <bool> wifi-ssh-status: false;
     in property <int> battery-health: 100;
     private property <bool> updating-env: false;
     private property <bool> ota-renaming: false;
@@ -32,6 +34,7 @@ export component AppWindow inherits Window {
     callback toggle_ota();
     callback update_environment();
     callback usb_ssh_toggle();
+    callback wifi_ssh_toggle();
 
     Background {}
 
@@ -176,10 +179,15 @@ export component AppWindow inherits Window {
 
         if view == "ssh-usb-net": SSHUsbNet {
             root-height: root.height;
-            kindle-ssh-ip: root.kindle-ssh-ip;
+            usb-ssh-ip: root.usb-ssh-ip;
+            wifi-ssh-ip: root.wifi-ssh-ip;
             usb-ssh-status: root.usb-ssh-status;
+            wifi-ssh-status: root.wifi-ssh-status;
             usb-ssh-toggle => {
                 root.usb_ssh_toggle();
+            }
+            wifi-ssh-toggle => {
+                root.wifi_ssh_toggle();
             }
         }
 

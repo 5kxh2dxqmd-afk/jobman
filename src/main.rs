@@ -30,12 +30,21 @@ fn main() {
     app.set_jobman_version(version.into());
     match load_ssh_config() {
         Ok(config) => {
-            app.set_kindle_ssh_ip(config.kindle_ip.into());
+            app.set_usb_ssh_ip(config.kindle_ip.into());
         }
         Err(e) => {
-            app.set_kindle_ssh_ip("N/A".into());
+            app.set_usb_ssh_ip("N/A".into());
             app.set_error(format!("Could not load config: {}", e).into());
             app.set_show_error(true);
+        }
+    }
+
+    match get_ip_addr() {
+        Some(ip) => {
+            app.set_wifi_ssh_ip(ip.into());
+        }
+        None => {
+            app.set_wifi_ssh_ip("N/A".into());
         }
     }
 
@@ -43,6 +52,7 @@ fn main() {
     app.set_ota_status(ota_status());
     app.set_wifi_status(wifi_status());
     app.set_usb_ssh_status(usb_ssh_enabled());
+    app.set_wifi_ssh_status(wifi_ssh_enabled());
     match battery_health() {
         Ok(health) => {
             app.set_battery_health(health);
@@ -111,6 +121,30 @@ fn main() {
             };
 
             app.set_usb_ssh_status(usb_ssh_enabled()); //Sync
+
+            if let Err(error_message) = result {
+                app.set_error(error_message.into());
+                app.set_show_error(true);
+            }
+        });
+    });
+
+    let wifi_ssh_weak = app_weak.clone();
+    app.on_wifi_ssh_toggle(move || {
+        let app = wifi_ssh_weak.unwrap();
+
+        let run_weak = wifi_ssh_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let status = app.get_wifi_ssh_status();
+        
+            let result = if status {
+                disable_wifi_ssh() 
+            } else {
+                enable_wifi_ssh()
+            };
+
+            app.set_wifi_ssh_status(wifi_ssh_enabled()); //Sync
 
             if let Err(error_message) = result {
                 app.set_error(error_message.into());
@@ -278,6 +312,20 @@ fn battery_health() -> Result<i32, String> {
     Ok((health.round() as i32).clamp(0, 100))
 }
 
+fn get_ip_addr() -> Option<String> {
+    let output = sh("lipc-get-prop com.lab126.wifid 711", "Failed to get IP address").ok()?;
+
+    for line in output.lines() {
+        if line.contains("4.1  IP") {
+            if let Some(part) = line.split(":").nth(1) {
+                return Some(part.trim().to_string());
+            }
+        }
+    }
+
+    None
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 struct SshConfig {
@@ -346,10 +394,61 @@ fn enable_usb_ssh() -> Result<(), String> {
 fn disable_usb_ssh() -> Result<(), String> {
     sh("ifconfig usb0 down", "Failed to bring usb0 interface down")?;
 
-
     sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 0", "Failed to disable g_ether")?;
     sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbUnconfigured", "Failed to run usbUnconfigured")?;
     sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbPlugOut", "Failed to run usbPlugOut")?;
+
+    //Stop daemon
+    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    Ok(())
+}
+
+fn wifi_ssh_enabled() -> bool {
+    let config = match load_ssh_config() {
+        Ok(cfg) => cfg,
+        Err(_) => return false,
+    };
+
+    let check_cmd = format!(
+        "iptables -C INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", 
+        config.port
+    );
+
+    sh(&check_cmd, "IPTables check failed!").is_ok()
+}
+
+fn enable_wifi_ssh() -> Result<(), String> {
+    let config = load_ssh_config()?;
+
+    sh(&format!("iptables -A INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to allow incoming SSH connections over Wi-Fi!")?;
+
+    //Create daemon options string
+    let mut options = format!(" -R -H\"/mnt/us\" -p\"{}\"", config.port);
+
+    if !config.allow_password_login {
+        options.push_str(" -s");
+    }
+
+    if config.allow_password_login && config.password_override_enabled {
+        options.push_str(&format!(" -Y\"{}\"", config.password)); 
+    }
+
+    if let Some(size) = config.window_size {
+        options.push_str(&format!(" -W\"{}\"", size));
+    }
+
+    let start_daemon_cmd = format!(
+        "nohup /mnt/us/jobman/bin/dropbearmulti dropbear{} >/dev/null 2>&1 &", 
+        options
+    );
+    sh(&start_daemon_cmd, "Failed to start dropbear daemon!")?;
+
+    Ok(())
+}
+
+fn disable_wifi_ssh() -> Result<(), String> {
+    let config = load_ssh_config()?;
+    sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH conections iptables rule")?;
 
     //Stop daemon
     sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
