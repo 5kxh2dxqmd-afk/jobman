@@ -7,6 +7,8 @@ edition = "2024"
 slint = { version = "1.17.1", default-features = false, features = ["compat-1-2", "std", "renderer-software"] }
 slint-backend-kindle = "0.5.1"
 fontique = { version = "=0.10.0", features = ["fontconfig-dlopen"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 
 [target.'cfg(not(all(target_os = "linux", target_arch = "arm")))'.dependencies]
 slint = { version = "1.17.1", features = ["backend-default"] }

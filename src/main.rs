@@ -1,6 +1,9 @@
 slint::include_modules!();
 use std::path::Path;
 use std::process::Command;
+use serde::Deserialize;
+use slint::SharedString;
+use std::fs;
 use std::env;
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
@@ -25,10 +28,21 @@ fn main() {
 
     let version = env!("CARGO_PKG_VERSION");
     app.set_jobman_version(version.into());
+    match load_ssh_config() {
+        Ok(config) => {
+            app.set_kindle_ssh_ip(config.kindle_ip.into());
+        }
+        Err(e) => {
+            app.set_kindle_ssh_ip("N/A".into());
+            app.set_error(format!("Could not load config: {}", e).into());
+            app.set_show_error(true);
+        }
+    }
 
     app.set_boot_mode(recovery_status());
     app.set_ota_status(ota_status());
     app.set_wifi_status(wifi_status());
+    app.set_usb_ssh_status(usb_ssh_enabled());
     match battery_health() {
         Ok(health) => {
             app.set_battery_health(health);
@@ -77,6 +91,30 @@ fn main() {
                         ui.set_show_error(true);
                     }
                 }
+            }
+        });
+    });
+
+    let usb_ssh_weak = app_weak.clone();
+    app.on_usb_ssh_toggle(move || {
+        let app = usb_ssh_weak.unwrap();
+
+        let run_weak = usb_ssh_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let status = app.get_usb_ssh_status();
+        
+            let result = if status {
+                disable_usb_ssh() 
+            } else {
+                enable_usb_ssh()
+            };
+
+            app.set_usb_ssh_status(usb_ssh_enabled()); //Sync
+
+            if let Err(error_message) = result {
+                app.set_error(error_message.into());
+                app.set_show_error(true);
             }
         });
     });
@@ -238,4 +276,82 @@ fn battery_health() -> Result<i32, String> {
     let health = (current / accurate) * 100.0; //Get % from 0.xx
 
     Ok((health.round() as i32).clamp(0, 100))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+struct SshConfig {
+    kindle_ip: String,
+    password_override_enabled: bool,
+    password: String,
+    allow_password_login: bool,
+    port: u16,
+    window_size: Option<u64>, 
+}
+
+fn load_ssh_config() -> Result<SshConfig, String> {
+    let config_path = Path::new("/mnt/us/jobman/ssh/etc/config.toml");
+    let config_contents = fs::read_to_string(config_path)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+
+    let config: SshConfig = toml::from_str(&config_contents)
+        .map_err(|e| format!("Syntax error in config file: {}", e))?;
+
+    Ok(config)
+}
+
+fn usb_ssh_enabled() -> bool {
+    if let Ok(status) = sh("lipc-get-prop com.lab126.volumd useUsbForNetwork", "g_ether status check failed") {
+        status.trim() == "1"
+    } else {
+        false
+    }
+}
+
+fn enable_usb_ssh() -> Result<(), String> {
+    let config = load_ssh_config()?; 
+
+    //Start USB networking
+    sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 1", "Failed to enable g_ether")?;
+    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbUnconfigured", "Failed to run usbUnconfigured")?;
+    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbPlugOut", "Failed to run usbPlugOut")?;
+
+    let ip_cmd = format!("ifconfig usb0 {}", config.kindle_ip);
+    sh(&ip_cmd, "Failed to set usb0 IP, uh-oh..!")?;
+
+    //Create daemon options string
+    let mut options = format!(" -R -H\"/mnt/us\" -p\"{}\" -l\"usb0\"", config.port);
+
+    if !config.allow_password_login {
+        options.push_str(" -s");
+    }
+
+    if config.allow_password_login && config.password_override_enabled {
+        options.push_str(&format!(" -Y\"{}\"", config.password)); 
+    }
+
+    if let Some(size) = config.window_size {
+        options.push_str(&format!(" -W\"{}\"", size));
+    }
+
+    let start_daemon_cmd = format!(
+        "nohup /mnt/us/jobman/bin/dropbearmulti dropbear{} >/dev/null 2>&1 &", 
+        options
+    );
+    sh(&start_daemon_cmd, "Failed to start dropbear daemon!")?;
+
+    Ok(())
+}
+
+fn disable_usb_ssh() -> Result<(), String> {
+    sh("ifconfig usb0 down", "Failed to bring usb0 interface down")?;
+
+
+    sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 0", "Failed to disable g_ether")?;
+    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbUnconfigured", "Failed to run usbUnconfigured")?;
+    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbPlugOut", "Failed to run usbPlugOut")?;
+
+    //Stop daemon
+    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    Ok(())
 }

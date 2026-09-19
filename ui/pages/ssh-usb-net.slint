@@ -2,8 +2,11 @@ import { Button } from "../button.slint";
 
 export component SSHUsbNet inherits Rectangle {
     in property <length> root-height;
+    in property <string> kindle-ssh-ip: "N/A";
+    private property <string> mode: "N/A (please select)";
+    in property <bool> usb-ssh-status: false;
 
-    callback toggle-ota();
+    callback usb-ssh-toggle();
 
     VerticalLayout {
         height: root-height * 0.27;
@@ -19,7 +22,7 @@ export component SSHUsbNet inherits Rectangle {
             font-family: "Inter";
             horizontal-alignment: center;
             vertical-alignment: center;
-            text: "SSH networking is currently disabled.";
+            text: root.usb-ssh-status ? "SSH networking is currently enabled!" : "SSH networking is currently disabled.";
         }
 
         HorizontalLayout {
@@ -30,11 +33,15 @@ export component SSHUsbNet inherits Rectangle {
 
                 Button {
                     root-height: root-height;
-                    text: "Enable USB SSH";
+                    text: root.usb-ssh-status ? "Disable USB SSH" : "Enable USB SSH";
                     width: root-height * 0.5;
+                    clicked => { 
+                        usb-ssh-toggle();
+                        root.mode = root.usb-ssh-status ? "USB" : "N/A (please select)";
+                    }
                 }
 
-                Button {
+                if root.usb-ssh-status == false: Button {
                     root-height: root-height;
                     text: "Enable Wi-Fi SSH";
                     width: root-height * 0.5;
@@ -43,7 +50,7 @@ export component SSHUsbNet inherits Rectangle {
         }
 
         Text {
-            text: "IP: 192.168.1.1\nMode: N/A (please select)\nConfig is mandated in ~/jobman/ssh.properties";
+            text: "IP: " + root.kindle-ssh-ip + "\nMode: " + root.mode + "\nConfig is mandated in ~/jobman/ssh/etc/config";
             color: #4b5563;
             wrap: word-wrap;
             width: 100%;

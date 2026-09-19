@@ -1,0 +1,6 @@
+KINDLE_IP = "192.168.15.244" # IPv4-only!
+PASSWORD_OVERRIDE_ENABLED = true # Password override options
+PASSWORD = "kindle"
+ALLOW_PASSWORD_LOGIN = true # Disabling this will enforce private key authentication
+PORT = 22 # SSH port
+# WINDOW_SIZE = 6291456 # Uncomment to enable faster transfers but higher memory usage
