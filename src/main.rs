@@ -448,7 +448,7 @@ fn enable_wifi_ssh() -> Result<(), String> {
 
 fn disable_wifi_ssh() -> Result<(), String> {
     let config = load_ssh_config()?;
-    sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH conections iptables rule")?;
+    sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH connections iptables rule")?;
 
     //Stop daemon
     sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;

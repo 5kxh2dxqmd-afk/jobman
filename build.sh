@@ -69,6 +69,7 @@ build_kindle() {
     echo "Jobman | Building Jobman"
     RUST_FONTCONFIG_DLOPEN=1 cargo zigbuild --release --target armv7-unknown-linux-musleabihf
     cp target/armv7-unknown-linux-musleabihf/release/jobman build/jobman
+    arm-kindlehf-linux-gnueabihf-strip build/jobman
 
     # Step 4
     echo "Jobman | Copying additional distribution files"
