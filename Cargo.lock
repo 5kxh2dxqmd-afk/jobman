@@ -4430,8 +4430,7 @@ dependencies = [
 [[package]]
 name = "slint-backend-kindle"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7bfb45f456616b9eb88619e95f7100a502f0e8902579057a106817288f9cd43"
+source = "git+https://github.com/KindleTweaks/slint-kindle-backend-patch#f24935677c39174053227705d6aa7f44bf8f9b6b"
 dependencies = [
  "fontdb",
  "fontique 0.8.0",

@@ -18,8 +18,8 @@
     - Environment updates
     - Self-updater
     - USB SSH (`g_ether`)
-- Planned:
     - Wi-Fi SSH (`iptables`)
+- Planned:
     - Update sideloading (akin to Magisk sideload to inactive slot)
     - UI for mounting root overlays on reboot (rootless)
 

@@ -12,7 +12,7 @@ chmod +x /mnt/us/jobman/jobman
 
 sleep 2
 
-nohup /mnt/us/jobman/jobman > /mnt/us/jobman/jobman.log 2>&1 &
+nohup /mnt/us/jobman/jobman < /dev/null > /mnt/us/jobman/jobman.log 2>&1 &
 JOB_PID=$!
 
 sleep 1
@@ -43,7 +43,7 @@ done
 
 #echo "[Jobman] Stopped..."
 
-kill $JOB_PID 2>/dev/null 
+kill -9 $JOB_PID 2>/dev/null 
 kill $LIPC_PID 2>/dev/null 
 
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home

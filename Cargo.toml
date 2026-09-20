@@ -16,3 +16,5 @@ slint = { version = "1.17.1", features = ["backend-default"] }
 [build-dependencies]
 slint-build = "1.17.1"
 
+[patch.crates-io]
+slint-backend-kindle = { git = "https://github.com/KindleTweaks/slint-kindle-backend-patch" }
