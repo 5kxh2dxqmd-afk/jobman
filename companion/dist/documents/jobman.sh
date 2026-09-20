@@ -6,9 +6,18 @@
 stop statusbar >/dev/null 2>&1
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.webview/?url=x
 
+# Ensure binaries are initialised properly here
 chmod +x /mnt/us/jobman/bin/sftp-server
 chmod +x /mnt/us/jobman/bin/dropbearmulti
 chmod +x /mnt/us/jobman/jobman
+
+if [ ! -L /usr/bin/scp ]; then
+    mntroot rw >/dev/null 2>&1
+    ln -s /mnt/us/jobman/bin/dropbearmulti /usr/bin/scp >/dev/null 2>&1
+    mntroot ro >/dev/null 2>&1
+fi # When using scp with the SSH impl, use -O for the original protocol.
+
+# End of initialisation
 
 sleep 2
 
