@@ -27,8 +27,9 @@ lipc-wait-event -m com.lab126.powerd "*" | while read line; do #Not ideal at all
             #echo "[Jobman] Killing - going to screensaver, will mess up UI!"
             kill $JOB_PID 2>/dev/null
             break 
-        ;;
-        usbUnconfigured*)
+        ;; 
+        # NOT Unconfigured, Rust sends that event.
+        usbConfigured*)
             #echo "[Jobman] Killing - going to blanket USB, will mess up UI!"
             kill $JOB_PID 2>/dev/null
             break 
