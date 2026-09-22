@@ -35,6 +35,15 @@ Great thanks to [slint-kindle-backend](https://github.com/sverrejb/slint-kindle-
     - `cargo install cargo-zigbuild`
     - `sudo pacman -S zig # or platform equivalent`
 
+### Alternative: Nix
+
+If you use [Nix](https://nixos.org/download/) (with flakes enabled), `nix develop` gives you a shell with all of the above, including a pinned koxtoolchain, and the build commands below work unchanged:
+
+```sh
+git submodule update --init
+nix develop -c ./build.sh kindle
+```
+
 ## PC
 
 Use `slint-viewer`, bundled with the Slint vscode plugin, or:

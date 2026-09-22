@@ -2,6 +2,17 @@
 # Name: Jobman
 # Author: KindleTweaks
 
+# Detach from the library's script launcher, otherwise it can bring the home screen back over jobman
+if [ "$1" != "--detached" ]; then
+    if command -v setsid > /dev/null 2>&1; then
+        setsid sh /mnt/us/documents/jobman.sh --detached > /dev/null 2>&1 < /dev/null &
+    else
+        nohup sh /mnt/us/documents/jobman.sh --detached > /dev/null 2>&1 < /dev/null &
+    fi
+    exit 0
+fi
+sleep 2 # Let the launcher finish and return to the home screen first
+
 # This script *needs* FBInk, otherwise jobman won't launch. Interferes with fb0?
 stop statusbar >/dev/null 2>&1
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.webview/?url=x
@@ -19,6 +30,11 @@ fi # When using scp with the SSH impl, use -O for the original protocol.
 
 # End of initialisation
 
+# Wait until the webview app is actually in front (up to 15s), then let it finish drawing
+for i in $(seq 1 15); do
+    [ "$(lipc-get-prop com.lab126.appmgrd activeApp 2>/dev/null)" = "com.lab126.webview" ] && break
+    sleep 1
+done
 sleep 2
 
 nohup /mnt/us/jobman/jobman < /dev/null > /mnt/us/jobman/jobman.log 2>&1 &

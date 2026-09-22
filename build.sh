@@ -1,10 +1,15 @@
 #!/bin/sh
-if ! command -v arm-kindlehf-linux-gnueabihf-gcc &> /dev/null; then
+# Kindle toolchain location; `nix develop` sets KINDLE_TC automatically
+KINDLE_TC="${KINDLE_TC:-$HOME/x-tools/arm-kindlehf-linux-gnueabihf}"
+SYSROOT="$KINDLE_TC/arm-kindlehf-linux-gnueabihf/sysroot"
+export PATH="$KINDLE_TC/bin:$PATH"
+
+if ! command -v arm-kindlehf-linux-gnueabihf-gcc > /dev/null 2>&1; then
     echo "Error: Please install koxtoolchain (https://github.com/koreader/koxtoolchain/releases)" >&2
     exit 1
 fi
 
-if ! command -v cargo-zigbuild &> /dev/null; then
+if ! command -v cargo-zigbuild > /dev/null 2>&1; then
     echo "Error: Please install cargo-zigbuild (see README)" >&2
     exit 1
 fi
@@ -14,8 +19,6 @@ build_local() {
     cargo run
 }
 
-SYSROOT="$HOME/x-tools/arm-kindlehf-linux-gnueabihf/arm-kindlehf-linux-gnueabihf/sysroot"
-export PATH="$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin:$PATH" # Just in case
 build_kindle() {
     echo "Jobman | Building for Kindle..."
     echo "Cleaning up..."
