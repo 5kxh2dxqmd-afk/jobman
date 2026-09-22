@@ -32,8 +32,7 @@ build_kindle() {
     ./configure --verbose \
         --host=arm-kindlehf-linux-gnueabihf \
         --without-openssl --without-zlib \
-        CC="arm-kindlehf-linux-gnueabihf-gcc --sysroot=$SYSROOT" \
-        LDFLAGS="-static"
+        CC="arm-kindlehf-linux-gnueabihf-gcc --sysroot=$SYSROOT"
 
     sed -i 's/-fzero-call-used-regs=used//g' Makefile
     sed -i 's/-fzero-call-used-regs=used//g' openbsd-compat/Makefile
