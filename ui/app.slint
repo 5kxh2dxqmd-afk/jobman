@@ -143,8 +143,8 @@ export component AppWindow inherits Window {
 
             if root.boot-mode: Card {
                 root-height: root.height;
-                title: "Reboot to Jobman";
-                description: "Exit & reboot back to Jobman recovery";
+                title: "Generate Logs";
+                description: "Run kmclog to generate multiple logs of previous boot attempts";
             }
 
             if !root.boot-mode: Card {
@@ -208,7 +208,7 @@ export component AppWindow inherits Window {
 
     Text {
         x: 0;
-        y: root.boot-mode ? root.height * 0.87 : root.height * 0.95;
+        y: root.boot-mode ? root.height * 0.9 : root.height * 0.95;
         width: parent.width;
         text: root.boot-mode ? "Reason: " + root.boot-reason + "\nhttps://kindlemodding.org/recovery\nMade by KindleTweaks | v" + root.jobman-version : "Made by KindleTweaks | v" + root.jobman-version;
         font-size: root.width * 0.03;
