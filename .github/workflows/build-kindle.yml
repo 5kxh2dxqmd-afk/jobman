@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 env:
   KOXTOOLCHAIN_RELEASE: "2026.08"
   KOXTOOLCHAIN_ARCHIVE: "kindlehf.tar.zst"
@@ -23,7 +26,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential autoconf automake libtool pkg-config \
-            zstd curl git patch
+            zstd curl git patch zip
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -74,3 +77,16 @@ jobs:
           name: jobman-kindle-build
           path: build/
           if-no-files-found: error
+
+      - name: Package build output
+        run: |
+          cd build
+          zip -r ../jobman-kindle.zip .
+
+      - name: Publish rolling "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Kindle build
+          make_latest: true
+          files: jobman-kindle.zip
