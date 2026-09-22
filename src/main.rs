@@ -2,7 +2,6 @@ slint::include_modules!();
 use std::path::Path;
 use std::process::Command;
 use serde::Deserialize;
-use slint::SharedString;
 use std::fs;
 use std::env;
 
@@ -107,8 +106,6 @@ fn main() {
 
     let usb_ssh_weak = app_weak.clone();
     app.on_usb_ssh_toggle(move || {
-        let app = usb_ssh_weak.unwrap();
-
         let run_weak = usb_ssh_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
             let Some(app) = run_weak.upgrade() else { return };
@@ -131,8 +128,6 @@ fn main() {
 
     let wifi_ssh_weak = app_weak.clone();
     app.on_wifi_ssh_toggle(move || {
-        let app = wifi_ssh_weak.unwrap();
-
         let run_weak = wifi_ssh_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
             let Some(app) = run_weak.upgrade() else { return };
@@ -392,6 +387,8 @@ fn enable_usb_ssh() -> Result<(), String> {
 }
 
 fn disable_usb_ssh() -> Result<(), String> {
+    sh("cat $(kdb get system/driver/usb/SYS_CONNECTED)", "Please plug your Kindle in before attempting to disable USB SSH!")?;
+
     sh("ifconfig usb0 down", "Failed to bring usb0 interface down")?;
 
     sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 0", "Failed to disable g_ether")?;
