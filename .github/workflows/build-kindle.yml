@@ -50,20 +50,23 @@ jobs:
         run: |
           curl -L -o "${KOXTOOLCHAIN_ARCHIVE}" \
             "https://github.com/koreader/koxtoolchain/releases/download/${KOXTOOLCHAIN_RELEASE}/${KOXTOOLCHAIN_ARCHIVE}"
-          # The archive already contains the "x-tools/..." path, so unpack at $HOME
           tar --zstd -xf "${KOXTOOLCHAIN_ARCHIVE}" -C "$HOME"
 
-      - name: Add toolchain to PATH
+      - name: Add toolchain to PATH and fix permissions
         run: |
           echo "$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin" >> "$GITHUB_PATH"
+          chmod -R a+x "$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin"
 
       - name: Sanity check toolchain
-        run: arm-kindlehf-linux-gnueabihf-gcc --version
+        run: |
+          echo "PATH=$PATH"
+          which arm-kindlehf-linux-gnueabihf-gcc
+          arm-kindlehf-linux-gnueabihf-gcc --version
 
       - name: Build (build.sh kindle)
         run: |
           chmod +x build.sh
-          ./build.sh kindle
+          bash build.sh kindle
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
