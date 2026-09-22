@@ -1,0 +1,73 @@
+name: Build Jobman for Kindle
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+env:
+  KOXTOOLCHAIN_RELEASE: "2026.08"
+  KOXTOOLCHAIN_ARCHIVE: "kindlehf.tar.zst"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential autoconf automake libtool pkg-config \
+            zstd curl git patch
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-musleabihf
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        run: cargo install cargo-zigbuild --locked
+
+      - name: Cache koxtoolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/x-tools
+          key: koxtoolchain-${{ env.KOXTOOLCHAIN_RELEASE }}-kindlehf
+
+      - name: Download & unpack koxtoolchain (kindlehf)
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o "${KOXTOOLCHAIN_ARCHIVE}" \
+            "https://github.com/koreader/koxtoolchain/releases/download/${KOXTOOLCHAIN_RELEASE}/${KOXTOOLCHAIN_ARCHIVE}"
+          # The archive already contains the "x-tools/..." path, so unpack at $HOME
+          tar --zstd -xf "${KOXTOOLCHAIN_ARCHIVE}" -C "$HOME"
+
+      - name: Add toolchain to PATH
+        run: |
+          echo "$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin" >> "$GITHUB_PATH"
+
+      - name: Sanity check toolchain
+        run: arm-kindlehf-linux-gnueabihf-gcc --version
+
+      - name: Build (build.sh kindle)
+        run: |
+          chmod +x build.sh
+          ./build.sh kindle
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobman-kindle-build
+          path: build/
+          if-no-files-found: error
