@@ -1,0 +1,107 @@
+name: Build Jobman for Kindle
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  KOXTOOLCHAIN_RELEASE: "2026.08"
+  KOXTOOLCHAIN_ARCHIVE: "kindlehf.tar.zst"
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: "500M"
+  CCACHE_COMPRESS: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential autoconf automake libtool pkg-config \
+            zstd curl git patch zip ccache
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-musleabihf
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        run: cargo install cargo-zigbuild --locked
+
+      - name: Cache koxtoolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/x-tools
+          key: koxtoolchain-${{ env.KOXTOOLCHAIN_RELEASE }}-kindlehf
+
+      - name: Download & unpack koxtoolchain (kindlehf)
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          curl -L -o "${KOXTOOLCHAIN_ARCHIVE}" \
+            "https://github.com/koreader/koxtoolchain/releases/download/${KOXTOOLCHAIN_RELEASE}/${KOXTOOLCHAIN_ARCHIVE}"
+          tar --zstd -xf "${KOXTOOLCHAIN_ARCHIVE}" -C "$HOME"
+
+      - name: Add toolchain to PATH and fix permissions
+        run: |
+          echo "$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin" >> "$GITHUB_PATH"
+          chmod -R a+x "$HOME/x-tools/arm-kindlehf-linux-gnueabihf/bin"
+
+      - name: Sanity check toolchain
+        run: |
+          echo "PATH=$PATH"
+          which arm-kindlehf-linux-gnueabihf-gcc
+          arm-kindlehf-linux-gnueabihf-gcc --version
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-kindlehf-${{ github.sha }}
+          restore-keys: |
+            ccache-kindlehf-
+
+      - name: Build (build.sh kindle)
+        run: |
+          chmod +x build.sh
+          bash build.sh kindle
+
+      - name: ccache stats
+        if: always()
+        run: ccache -s
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobman-kindle-build
+          path: build/
+          if-no-files-found: error
+
+      - name: Package build output
+        run: |
+          cd build
+          zip -r ../jobman-kindle.zip .
+
+      - name: Publish rolling "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Kindle build
+          make_latest: true
+          files: jobman-kindle.zip

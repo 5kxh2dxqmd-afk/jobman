@@ -1,0 +1,32 @@
+name: Sync with upstream (KindleTweaks/jobman)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge upstream/main (never overwrite)
+        run: |
+          git remote add upstream https://github.com/KindleTweaks/jobman.git
+          git fetch upstream main
+          git merge upstream/main --no-edit -m "Merge upstream/main"
+          git submodule update --init --recursive
+          git push origin main
