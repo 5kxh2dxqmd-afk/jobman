@@ -113,7 +113,7 @@ export component AppWindow inherits Window {
         y: root.height * 0.37;
 
         if view == "home": VerticalLayout {
-            spacing: root.height * 0.01; 
+            spacing: root.boot-mode ? root.height * 0.025 : root.height * 0.01; 
 
             if !root.boot-mode: Card {
                root-height: root.height;
@@ -144,7 +144,7 @@ export component AppWindow inherits Window {
             if root.boot-mode: Card {
                 root-height: root.height;
                 title: "Generate Logs";
-                description: "Run kmclog to generate multiple logs of previous boot attempts";
+                description: "Generate multiple logs of previous boot attempts";
             }
 
             if !root.boot-mode: Card {
