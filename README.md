@@ -35,7 +35,7 @@ Great thanks to [slint-kindle-backend](https://github.com/sverrejb/slint-kindle-
     - `cargo install cargo-zigbuild`
     - `sudo pacman -S zig # or platform equivalent`
 
-### Alternative: Nix (Not Recommended)
+### Alternative: Nix
 
 If you use [Nix](https://nixos.org/download/) (with flakes enabled), `nix develop` gives you a shell with all of the above, including a pinned koxtoolchain, and the build commands below work unchanged:
 
@@ -43,8 +43,6 @@ If you use [Nix](https://nixos.org/download/) (with flakes enabled), `nix develo
 git submodule update --init
 nix develop -c ./build.sh kindle
 ```
-
-Please note that I do not maintain this, but it is an option if you wish to use it.
 
 ## PC
 
