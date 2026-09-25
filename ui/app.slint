@@ -30,6 +30,11 @@ export component AppWindow inherits Window {
     in-out property <bool> show-error: false;
     in-out property <string> error: "An unknown error occurred. Please retry at another time.";
 
+    in property <bool> recovery-userstore-mounted: false;
+    in property <bool> recovery-userstore-recreated: false;
+    callback recovery_mount_userstore();
+    callback recovery_recreate_userstore();
+
     callback quit();
     callback toggle_ota();
     callback update_environment();
@@ -131,14 +136,21 @@ export component AppWindow inherits Window {
 
             if root.boot-mode: Card {
                 root-height: root.height;
-                title: "Mount Userstore";
+                title: root.recovery-userstore-mounted ? "Unmount Userstore" : "Mount Userstore";
                 description: "Mount the Kindle over USB";
+                clicked => {
+                    recovery_mount_userstore();
+                }
             }
 
             if root.boot-mode: Card {
                 root-height: root.height;
                 title: "Wipe Userstore";
                 description: "Recreate the userstore (/mnt/us)";
+                disabled: root.recovery-userstore-recreated;
+                clicked => {
+                    recovery_recreate_userstore();
+                }
             }
 
             if root.boot-mode: Card {

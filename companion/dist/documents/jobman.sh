@@ -17,16 +17,48 @@ sleep 2 # Let the launcher finish and return to the home screen first
 stop statusbar >/dev/null 2>&1
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.webview/?url=x
 
-# Ensure binaries are initialised properly here
-chmod +x /mnt/us/jobman/bin/sftp-server
-chmod +x /mnt/us/jobman/bin/dropbearmulti
-chmod +x /mnt/us/jobman/jobman
+# Trigger installation process: this is also ran by jb.sh, but we keep it here if the user needs to (for whatever reason) download manually, or something is broken so they can re-execute.
+if [ ! -f /mnt/us/jobman/JOBMAN_INSTALLED ]; then
+    # Ensure binaries are executable
+    chmod +x /mnt/us/jobman/bin/sftp-server
+    chmod +x /mnt/us/jobman/bin/dropbearmulti
+    chmod +x /mnt/us/jobman/jobman
 
-if [ ! -L /usr/bin/scp ]; then
-    mntroot rw >/dev/null 2>&1
-    ln -s /mnt/us/jobman/bin/dropbearmulti /usr/bin/scp >/dev/null 2>&1
-    mntroot ro >/dev/null 2>&1
-fi # When using scp with the SSH impl, use -O for the original protocol.
+    # Create scp symlink
+    if [ ! -L /usr/bin/scp ]; then
+        mntroot rw >/dev/null 2>&1
+        ln -s /mnt/us/jobman/bin/dropbearmulti /usr/bin/scp >/dev/null 2>&1
+        mntroot ro >/dev/null 2>&1
+    fi # When using scp with the SSH impl, use -O for the original protocol.
+
+    if [ -f /mnt/us/jobman/INSTALL_RECOVERY ]; then
+        mntroot rw
+
+        # Everything in boot converges into this singular file, so we prevent it from starting automatically 
+        # to halt it. The jobman_recovery job starts it manually, using initctl.
+        sed -i "/start on started system_setup/d" /etc/upstart/system_setup_after_shpm.conf
+
+        cp /mnt/us/jobman/jobman_recovery.conf /etc/upstart/jobman_recovery.conf
+        mntroot ro
+
+        rm -f /mnt/us/jobman/INSTALL_RECOVERY
+    fi
+
+    if [ -f /mnt/us/jobman/REMOVE_RECOVERY ]; then
+        mntroot rw
+
+        if ! grep -q "start on started system_setup" /etc/upstart/system_setup_after_shpm.conf; then
+            sed -i "/#This upstart node handles configuring of system after coming out of shipment mode/a start on started system_setup" /etc/upstart/system_setup_after_shpm.conf
+        fi
+
+        rm -f /etc/upstart/jobman_recovery.conf
+        mntroot ro
+
+        rm -f /mnt/us/jobman/REMOVE_RECOVERY
+    fi
+
+    touch /mnt/us/jobman/JOBMAN_INSTALLED
+fi
 
 # End of initialisation
 
