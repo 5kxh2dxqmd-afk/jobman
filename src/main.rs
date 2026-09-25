@@ -47,7 +47,11 @@ fn main() {
         }
     }
 
-    app.set_boot_mode(recovery_status());
+    if let Some(reason) = recovery_mode() {
+        app.set_boot_mode(true);
+        app.set_boot_reason(reason.into());
+    }
+
     app.set_ota_status(ota_status());
     app.set_wifi_status(wifi_status());
     app.set_usb_ssh_status(usb_ssh_enabled());
@@ -149,12 +153,29 @@ fn main() {
     });
 
     app.on_quit(|| std::process::exit(0));
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    {
+        let app_weak = app.as_weak();
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(app) = app_weak.upgrade() {
+                app.window().request_redraw();
+            }
+        });
+    }
+
     app.run().expect("Event Loop Error!");
 }
 
 //UI backend
-fn recovery_status() -> bool {
-    env::args().any(|arg| arg == "--recovery" || arg == "-r")
+fn recovery_mode() -> Option<String> {
+    let mut args = env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--recovery" || arg == "-r" {
+            return Some(args.next().unwrap_or_else(|| "N/A".to_string()));
+        }
+    }
+
+    None
 }
 
 fn ota_status() -> bool {
@@ -270,7 +291,7 @@ fn original_mah_round(rough: f64) -> f64 {
 }
 
 fn battery_health() -> Result<i32, String> {
-    if recovery_status() {
+    if recovery_mode().is_some() {
         return Ok(100) //Don't run commands on app launch in recovery environment -- will fail anyway
     }
 
