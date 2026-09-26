@@ -1,6 +1,7 @@
 export component Card { 
     in property <string> title: "Default Title";
     in property <string> description: "Default Description";
+    in property <bool> disabled: false;
 
     in property <length> root-height;
     callback clicked(); 
@@ -8,7 +9,8 @@ export component Card {
     height: root-height * 0.1;
     
     card-touch := TouchArea {
-        clicked => { root.clicked(); }
+        enabled: !root.disabled;
+        clicked => { if(!root.disabled) { root.clicked(); } }
         
         Rectangle {
             border-color: black;
@@ -30,14 +32,14 @@ export component Card {
                         font-size: root-height * 0.03;
                         font-family: "Libre Baskerville";
                         text: root.title;
-                        color: black;
+                        color: root.disabled ? #4b5563 : black;
                     }
 
                     Text {
                         font-size: root-height * 0.02;
                         font-family: "Inter";
                         text: root.description;
-                        color: #4b5563;
+                        color: root.disabled ? #69768a : #4b5563;
                     }
                 }
 
@@ -45,7 +47,7 @@ export component Card {
                     vertical-alignment: center;
                     font-size: root-height * 0.03;
                     text: ">";
-                    color: black;
+                    color: root.disabled ? #4b5563 : black;
                     font-weight: 800;
                 }
             }

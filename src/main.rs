@@ -88,7 +88,7 @@ fn main() {
 
     let update_weak = app_weak.clone();
     app.on_update_environment(move || {
-        let app = update_weak.unwrap();
+        let _app = update_weak.unwrap();
         //For redraw 
 
         let run_weak = update_weak.clone();
@@ -150,6 +150,43 @@ fn main() {
                 app.set_show_error(true);
             }
         });
+    });
+
+    let recovery_userstore_weak = app_weak.clone();
+    app.on_recovery_mount_userstore(move || {
+        let app = recovery_userstore_weak.unwrap();
+        let status = app.get_recovery_userstore_mounted();
+        
+        let result = if status {
+            recovery_umount_userstore()
+        } else {
+            recovery_mount_userstore()
+        };
+
+        match result {
+            Ok(_) => {
+                app.set_recovery_userstore_mounted(!status);
+            }
+            Err(error_message) => {
+                app.set_error(error_message.into());
+                app.set_show_error(true);
+            }
+        }
+    });
+
+    let recovery_userstore_recreate_weak = app_weak.clone();
+    app.on_recovery_recreate_userstore(move || {
+        let app = recovery_userstore_recreate_weak.unwrap();
+
+        match recovery_recreate_userstore() {
+            Ok(_) => {
+                app.set_recovery_userstore_recreated(true);
+            }
+            Err(error_message) => {
+                app.set_error(error_message.into());
+                app.set_show_error(true);
+            }
+        }
     });
 
     app.on_quit(|| std::process::exit(0));
@@ -470,5 +507,37 @@ fn disable_wifi_ssh() -> Result<(), String> {
 
     //Stop daemon
     sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    Ok(())
+}
+
+//Recovery functions
+fn recovery_source_env() -> Result<(), String> {
+    sh("source /etc/upstart/functions;", "Failed to source /etc/upstart/functions in a recovery context!")?;
+    sh("source /etc/sysconfig/mntus;", "Failed to source /etc/sysconfig/mntus in a recovery context!")?;
+    sh("source /etc/sysconfig/board_variables;", "Failed to source /etc/sysconfig/board_variables in a recovery context!")?;
+    sh("source /etc/sysconfig/paths;", "Failed to source source /etc/sysconfig/paths in a recovery context!")?;
+    sh("source /usr/bin/record_device_metric.sh;", "Failed to source /usr/bin/record_device_metric.sh in a recovery context!")?;
+
+    Ok(())
+}
+
+fn recovery_mount_userstore() -> Result<(), String> {
+    recovery_source_env()?;
+    sh("/etc/upstart/userstore start;", "Failed to mount userstore (USB)!")?;
+
+    Ok(())
+}
+
+fn recovery_umount_userstore() -> Result<(), String> {
+    recovery_source_env()?;
+    sh("/etc/upstart/userstore stop;", "Failed to unmount userstore (USB)!")?;
+
+    Ok(())
+}
+
+fn recovery_recreate_userstore() -> Result<(), String> {
+    recovery_source_env()?;
+    sh("/etc/upstart/userstore recreate;", "Failed to re-create userstore!")?;
+
     Ok(())
 }
