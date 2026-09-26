@@ -31,9 +31,11 @@ export component AppWindow inherits Window {
     in-out property <string> error: "An unknown error occurred. Please retry at another time.";
 
     in property <bool> recovery-userstore-mounted: false;
-    in property <bool> recovery-userstore-recreated: false;
+    in-out property <bool> recovery-mounting-userstore: false;
+    in-out property <bool> recovery-generating-logs: false;
     callback recovery_mount_userstore();
     callback recovery_recreate_userstore();
+    callback recovery_generate_logs();
 
     callback quit();
     callback toggle_ota();
@@ -118,7 +120,8 @@ export component AppWindow inherits Window {
         y: root.height * 0.37;
 
         if view == "home": VerticalLayout {
-            spacing: root.boot-mode ? root.height * 0.025 : root.height * 0.01; 
+            y: root.boot-mode ? root.height * 0.07 : 0;
+            spacing: root.boot-mode ? root.height * 0.02 : root.height * 0.01; 
 
             if !root.boot-mode: Card {
                root-height: root.height;
@@ -136,27 +139,24 @@ export component AppWindow inherits Window {
 
             if root.boot-mode: Card {
                 root-height: root.height;
-                title: root.recovery-userstore-mounted ? "Unmount Userstore" : "Mount Userstore";
+                title: root.recovery-mounting-userstore ? (root.recovery-userstore-mounted ? "Unmounting Userstore..." : "Mounting Userstore...") : (root.recovery-userstore-mounted ? "Unmount Userstore" : "Mount Userstore");
                 description: "Mount the Kindle over USB";
+                disabled: root.recovery-mounting-userstore;
                 clicked => {
+                    root.recovery-mounting-userstore = true;
                     recovery_mount_userstore();
                 }
             }
 
             if root.boot-mode: Card {
                 root-height: root.height;
-                title: "Wipe Userstore";
-                description: "Recreate the userstore (/mnt/us)";
-                disabled: root.recovery-userstore-recreated;
-                clicked => {
-                    recovery_recreate_userstore();
-                }
-            }
-
-            if root.boot-mode: Card {
-                root-height: root.height;
-                title: "Generate Logs";
+                title: root.recovery-generating-logs ? "Generating Logs..." : "Generate Logs";
                 description: "Generate multiple logs of previous boot attempts";
+                disabled: root.recovery-generating-logs;
+                clicked => {
+                    root.recovery-generating-logs = true;
+                    recovery_generate_logs();
+                }
             }
 
             if !root.boot-mode: Card {
@@ -195,6 +195,7 @@ export component AppWindow inherits Window {
             wifi-ssh-ip: root.wifi-ssh-ip;
             usb-ssh-status: root.usb-ssh-status;
             wifi-ssh-status: root.wifi-ssh-status;
+            boot-mode: root.boot-mode;
             usb-ssh-toggle => {
                 root.usb_ssh_toggle();
             }
