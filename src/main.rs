@@ -165,24 +165,29 @@ fn main() {
 
         match result {
             Ok(_) => {
+                app.set_recovery_mounting_userstore(false);
                 app.set_recovery_userstore_mounted(!status);
             }
             Err(error_message) => {
+                app.set_recovery_mounting_userstore(false);
+                
                 app.set_error(error_message.into());
                 app.set_show_error(true);
             }
         }
     });
 
-    let recovery_userstore_recreate_weak = app_weak.clone();
-    app.on_recovery_recreate_userstore(move || {
-        let app = recovery_userstore_recreate_weak.unwrap();
+    let recovery_generate_logs_weak = app_weak.clone();
+    app.on_recovery_generate_logs(move || {
+        let app = recovery_generate_logs_weak.unwrap();
 
-        match recovery_recreate_userstore() {
+        match recovery_run_kmclog() {
             Ok(_) => {
-                app.set_recovery_userstore_recreated(true);
+                app.set_recovery_generating_logs(false);
             }
             Err(error_message) => {
+                app.set_recovery_generating_logs(false);
+
                 app.set_error(error_message.into());
                 app.set_show_error(true);
             }
@@ -510,7 +515,7 @@ fn disable_wifi_ssh() -> Result<(), String> {
     Ok(())
 }
 
-//Recovery functions
+//Recovery functions/child_process calls
 fn recovery_source_env() -> Result<(), String> {
     sh("source /etc/upstart/functions;", "Failed to source /etc/upstart/functions in a recovery context!")?;
     sh("source /etc/sysconfig/mntus;", "Failed to source /etc/sysconfig/mntus in a recovery context!")?;
@@ -535,9 +540,8 @@ fn recovery_umount_userstore() -> Result<(), String> {
     Ok(())
 }
 
-fn recovery_recreate_userstore() -> Result<(), String> {
-    recovery_source_env()?;
-    sh("/etc/upstart/userstore recreate;", "Failed to re-create userstore!")?;
+fn recovery_run_kmclog() -> Result<(), String> {
+    sh("/var/local/kmc/sbin/kmclog.sh", "Failed to generate KMCLog!")?;
 
     Ok(())
 }
