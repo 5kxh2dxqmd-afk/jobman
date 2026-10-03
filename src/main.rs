@@ -4,6 +4,8 @@ use std::process::Command;
 use serde::Deserialize;
 use std::fs;
 use std::env;
+use std::thread;
+use std::time::Duration;
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
@@ -154,44 +156,53 @@ fn main() {
 
     let recovery_userstore_weak = app_weak.clone();
     app.on_recovery_mount_userstore(move || {
-        let app = recovery_userstore_weak.unwrap();
-        let status = app.get_recovery_userstore_mounted();
-        
-        let result = if status {
-            recovery_umount_userstore()
-        } else {
-            recovery_mount_userstore()
-        };
+        let run_weak = recovery_userstore_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let app = run_weak.unwrap();
 
-        match result {
-            Ok(_) => {
-                app.set_recovery_mounting_userstore(false);
-                app.set_recovery_userstore_mounted(!status);
-            }
-            Err(error_message) => {
-                app.set_recovery_mounting_userstore(false);
+            let status = app.get_recovery_userstore_mounted();
+        
+            let result = if status {
+                recovery_umount_userstore()
+            } else {
+                recovery_mount_userstore()
+            };
+
+            match result {
+                Ok(_) => {
+                    app.set_recovery_mounting_userstore(false);
+                    app.set_recovery_userstore_mounted(!status);
+                }
+                Err(error_message) => {
+                    app.set_recovery_mounting_userstore(false);
                 
-                app.set_error(error_message.into());
-                app.set_show_error(true);
+                    app.set_error(error_message.into());
+                    app.set_show_error(true);
+                }
             }
-        }
+        });
     });
 
     let recovery_generate_logs_weak = app_weak.clone();
     app.on_recovery_generate_logs(move || {
-        let app = recovery_generate_logs_weak.unwrap();
+        let run_weak = recovery_generate_logs_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let app = run_weak.unwrap();
 
-        match recovery_run_kmclog() {
-            Ok(_) => {
-                app.set_recovery_generating_logs(false);
-            }
-            Err(error_message) => {
-                app.set_recovery_generating_logs(false);
+            match recovery_run_kmclog() {
+                Ok(_) => {
+                    app.set_recovery_generating_logs(false);
+                }
+                Err(error_message) => {
+                    app.set_recovery_generating_logs(false);
 
-                app.set_error(error_message.into());
-                app.set_show_error(true);
+                    app.set_error(error_message.into());
+                    app.set_show_error(true);
+                }
             }
-        }
+        });
     });
 
     app.on_quit(|| std::process::exit(0));
@@ -414,7 +425,28 @@ fn usb_ssh_enabled() -> bool {
     }
 }
 
+static mut VOLUMD_STARTED: bool = false; //Rust is so strange
+
+#[allow(static_mut_refs)]
+fn recovery_enable_volumd() -> Result<(), String> {
+    unsafe {
+        if let Some(_) = recovery_mode() && !VOLUMD_STARTED {
+            //Initctl always errors anyway, we silence it. Still throws if the conf is missing, etc., + lipcd should be started at this stage.
+            sh("initctl start volumd >/dev/null 2>&1", "Failed to initialise volumd")?;
+            thread::sleep(Duration::from_millis(500));
+
+            sh("initctl start usbnetd >/dev/null 2>&1", "Failed to initialise usbnetd")?;
+            thread::sleep(Duration::from_millis(500));
+
+            VOLUMD_STARTED = true;
+        }
+    }
+
+    Ok(())
+}
+
 fn enable_usb_ssh() -> Result<(), String> {
+    recovery_enable_volumd()?;
     let config = load_ssh_config()?; 
 
     //Start USB networking

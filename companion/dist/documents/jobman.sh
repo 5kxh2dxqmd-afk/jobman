@@ -39,7 +39,7 @@ if [ ! -f /mnt/us/jobman/JOBMAN_INSTALLED ]; then
         # to halt it. The jobman_recovery job starts it manually, using initctl.
         sed -i "/start on started system_setup/d" /etc/upstart/system_setup_after_shpm.conf
 
-        cp /mnt/us/jobman/jobman_recovery.conf /etc/upstart/jobman_recovery.conf
+        cp -f /mnt/us/jobman/jobman_recovery.conf /etc/upstart/jobman_recovery.conf
         mntroot ro
 
         rm -f /mnt/us/jobman/INSTALL_RECOVERY
