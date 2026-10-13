@@ -8,6 +8,7 @@ export component SSHUsbNet inherits Rectangle {
     in property <bool> usb-ssh-status: false;
     in property <bool> wifi-ssh-status: false;
     in property <bool> boot-mode: false;
+    in property <bool> wifi-status: false;
 
     callback usb-ssh-toggle();
     callback wifi-ssh-toggle();
@@ -46,8 +47,8 @@ export component SSHUsbNet inherits Rectangle {
 
                 if root.usb-ssh-status == false: Button {
                     root-height: root-height;
-                    text: root.wifi-ssh-status ? "Disable Wi-Fi SSH" : "Enable Wi-Fi SSH";
-                    disabled: root.boot-mode;
+                    text: root.wifi-status ? (root.wifi-ssh-status ? "Disable Wi-Fi SSH" : "Enable Wi-Fi SSH") : "Wi-Fi is Disabled!";
+                    disabled: root.boot-mode || !root.wifi-status;
                     width: root-height * 0.5;
                     clicked => {
                         wifi-ssh-toggle();

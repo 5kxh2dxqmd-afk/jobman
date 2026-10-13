@@ -30,11 +30,14 @@ export component AppWindow inherits Window {
     in-out property <bool> show-error: false;
     in-out property <string> error: "An unknown error occurred. Please retry at another time.";
 
+    in property <bool> koreader-status: false;
     in property <bool> recovery-userstore-mounted: false;
     in-out property <bool> recovery-mounting-userstore: false;
     in-out property <bool> recovery-generating-logs: false;
+    private property <bool> recovery-opening-koreader: false; //If opened, GUI terminates anyway, does not need an external update.
     callback recovery_mount_userstore();
     callback recovery_generate_logs();
+    callback create_koreader_flag();
 
     callback quit();
     callback toggle_ota();
@@ -119,8 +122,8 @@ export component AppWindow inherits Window {
         y: root.height * 0.37;
 
         if view == "home": VerticalLayout {
-            y: root.boot-mode ? root.height * 0.07 : 0;
-            spacing: root.boot-mode ? root.height * 0.02 : root.height * 0.01; 
+            y: root.height * 0;
+            spacing: root.boot-mode ? root.height * 0.015 : root.height * 0.01; 
 
             if !root.boot-mode: Card {
                root-height: root.height;
@@ -155,6 +158,17 @@ export component AppWindow inherits Window {
                 clicked => {
                     root.recovery-generating-logs = true;
                     recovery_generate_logs();
+                }
+            }
+
+            if root.boot-mode: Card {
+                root-height: root.height;
+                title: root.recovery-opening-koreader ? "Opening KOReader..." : (root.koreader-status ? "Open KOReader" : "KOReader Not Installed!");
+                description: "KOReader is a document viewer for E-Ink devices.";
+                disabled: !root.koreader-status || root.recovery-opening-koreader;
+                clicked => {
+                    root.recovery-opening-koreader = true;
+                    create_koreader_flag();
                 }
             }
 
@@ -195,6 +209,7 @@ export component AppWindow inherits Window {
             usb-ssh-status: root.usb-ssh-status;
             wifi-ssh-status: root.wifi-ssh-status;
             boot-mode: root.boot-mode;
+            wifi-status: root.wifi-status;
             usb-ssh-toggle => {
                 root.usb_ssh_toggle();
             }
@@ -274,6 +289,7 @@ export component AppWindow inherits Window {
                                 root.show-error = false;
                                 root.ota-renaming = false; 
                                 root.updating-env = false;
+                                root.recovery-opening-koreader = false;
                             }
                         }
                     }
