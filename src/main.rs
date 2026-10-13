@@ -58,6 +58,7 @@ fn main() {
     app.set_wifi_status(wifi_status());
     app.set_usb_ssh_status(usb_ssh_enabled());
     app.set_wifi_ssh_status(wifi_ssh_enabled());
+    app.set_koreader_status(koreader_installed());
     match battery_health() {
         Ok(health) => {
             app.set_battery_health(health);
@@ -199,6 +200,25 @@ fn main() {
                     app.set_recovery_generating_logs(false);
 
                     app.set_error(error_message.into());
+                    app.set_show_error(true);
+                }
+            }
+        });
+    });
+
+    let koreader_flag_weak = app_weak.clone();
+    app.on_create_koreader_flag(move || {
+        let run_weak = koreader_flag_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let app = run_weak.unwrap();
+
+            match create_koreader_flag() {
+                Ok(_) => {
+                    std::process::exit(0) //Progress in upstart sequence
+                }
+                Err(_) => {
+                    app.set_error("Failed to create KOReader flag (permissions?)".into());
                     app.set_show_error(true);
                 }
             }
@@ -425,6 +445,17 @@ fn usb_ssh_enabled() -> bool {
     }
 }
 
+fn usb_connected() -> Result<(), String>  {
+    let err = "Please plug your Kindle into a computer before attempting to disable USB SSH!";
+    let status = sh("cat /sys/class/udc/*.usb/state", "Failed to check USB state")?;
+    
+    if status.trim() == "configured" {
+        Ok(())
+    } else {
+        Err(err.to_string())
+    }
+}
+
 static mut VOLUMD_STARTED: bool = false; //Rust is so strange
 
 #[allow(static_mut_refs)]
@@ -482,7 +513,7 @@ fn enable_usb_ssh() -> Result<(), String> {
 }
 
 fn disable_usb_ssh() -> Result<(), String> {
-    sh("cat $(kdb get system/driver/usb/SYS_CONNECTED)", "Please plug your Kindle in before attempting to disable USB SSH!")?;
+    usb_connected()?; //Prevents kernel panics
 
     sh("ifconfig usb0 down", "Failed to bring usb0 interface down")?;
 
@@ -548,25 +579,32 @@ fn disable_wifi_ssh() -> Result<(), String> {
 }
 
 //Recovery functions/child_process calls
-fn recovery_source_env() -> Result<(), String> {
-    sh("source /etc/upstart/functions;", "Failed to source /etc/upstart/functions in a recovery context!")?;
-    sh("source /etc/sysconfig/mntus;", "Failed to source /etc/sysconfig/mntus in a recovery context!")?;
-    sh("source /etc/sysconfig/board_variables;", "Failed to source /etc/sysconfig/board_variables in a recovery context!")?;
-    sh("source /etc/sysconfig/paths;", "Failed to source source /etc/sysconfig/paths in a recovery context!")?;
-    sh("source /usr/bin/record_device_metric.sh;", "Failed to source /usr/bin/record_device_metric.sh in a recovery context!")?;
+fn koreader_installed() -> bool {
+    Path::new("/mnt/us/koreader").try_exists().unwrap_or(false)
+}
+
+fn create_koreader_flag() -> Result<(), String> {
+    //Upstart needs to gracefully handle termination anyway, and the UI and KOReader overwrite + conflict. Not fun.
+    //These are stopped again in upstart, so there aren't conflicts when the boot sequence is resumed.
+    sh("initctl start powerd >/dev/null 2>&1", "Failed to start powerd!")?;
+    thread::sleep(Duration::from_millis(500));
+
+    sh("initctl start wifid >/dev/null 2>&1", "Failed to start wifid!")?;
+    thread::sleep(Duration::from_millis(500));
+
+    sh("initctl start cmd >/dev/null 2>&1", "Failed to start cmd!")?;
+    std::fs::write("/var/tmp/JOBMAN_START_KOREADER", b"").map_err(|e| e.to_string())?; 
 
     Ok(())
 }
 
 fn recovery_mount_userstore() -> Result<(), String> {
-    recovery_source_env()?;
     sh("/etc/upstart/userstore start;", "Failed to mount userstore (USB)!")?;
 
     Ok(())
 }
 
 fn recovery_umount_userstore() -> Result<(), String> {
-    recovery_source_env()?;
     sh("/etc/upstart/userstore stop;", "Failed to unmount userstore (USB)!")?;
 
     Ok(())
