@@ -24,8 +24,8 @@ export component AppWindow inherits Window {
     in property <bool> usb-ssh-status: false;
     in property <bool> wifi-ssh-status: false;
     in property <int> battery-health: 100;
-    private property <bool> updating-env: false;
-    private property <bool> ota-renaming: false;
+    private property <bool> updating-env: false; //Terminates GUI upon completion
+    private property <bool> ota-renaming: false; //^Same
     private property <string> view: "home";
     in-out property <bool> show-error: false;
     in-out property <string> error: "An unknown error occurred. Please retry at another time.";
