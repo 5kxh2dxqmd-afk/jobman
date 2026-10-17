@@ -7,6 +7,9 @@ use std::env;
 use std::thread;
 use std::time::Duration;
 
+mod helpers;
+use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable};
+
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
 
@@ -159,7 +162,7 @@ fn main() {
     app.on_recovery_mount_userstore(move || {
         let run_weak = recovery_userstore_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
-            let Some(app) = run_weak.upgrade() else { return };
+            let Some(_app) = run_weak.upgrade() else { return };
             let app = run_weak.unwrap();
 
             let status = app.get_recovery_userstore_mounted();
@@ -189,7 +192,7 @@ fn main() {
     app.on_recovery_generate_logs(move || {
         let run_weak = recovery_generate_logs_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
-            let Some(app) = run_weak.upgrade() else { return };
+            let Some(_app) = run_weak.upgrade() else { return };
             let app = run_weak.unwrap();
 
             match recovery_run_kmclog() {
@@ -210,7 +213,7 @@ fn main() {
     app.on_create_koreader_flag(move || {
         let run_weak = koreader_flag_weak.clone();
         let _ = slint::invoke_from_event_loop(move || {
-            let Some(app) = run_weak.upgrade() else { return };
+            let Some(_app) = run_weak.upgrade() else { return };
             let app = run_weak.unwrap();
 
             match create_koreader_flag() {
@@ -253,19 +256,6 @@ fn recovery_mode() -> Option<String> {
 
 fn ota_status() -> bool {
     Path::new("/usr/bin/otav3").try_exists().unwrap_or(false)
-}
-
-fn sh(cmd: &str, err: &str) -> Result<String, String> {
-    let output = Command::new("sh")
-        .args(["-c", cmd])
-        .output()
-        .map_err(|e| format!("{err} (Process Error: {e})"))?; 
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        Err(format!("{err} (Exit Code: {})", output.status.code().unwrap_or(-1)))
-    }
 }
 
 fn chattr_path() -> &'static str {
@@ -338,8 +328,8 @@ fn enable_ota() -> Result<(), String> {
 }
 
 fn wifi_status() -> bool {
-    if let Ok(con) = sh("lipc-get-prop com.lab126.wifid cmState", "WiFi check failed") {
-        con.trim() == "CONNECTED"
+    if let Ok(con) = lipc_get("wifid", "cmState") {
+        con == "CONNECTED"
     } else {
         false
     }
@@ -369,8 +359,8 @@ fn battery_health() -> Result<i32, String> {
     }
 
     let mah = sh("gasgauge-info -m", "Failed to retrieve battery mAh")?;
-    let capav = sh("lipc-get-prop com.lab126.powerd battLevel", "Failed to retrieve battery capacity")?;
     let original_mah = sh("cat /sys/class/power_supply/bd*_bat/charge_full_design", "Failed to read battery initial capacity")?;
+    let capav = lipc_get("powerd", "battLevel")?;
 
     let mah: f64 = mah
         .split_whitespace()
@@ -402,7 +392,7 @@ fn battery_health() -> Result<i32, String> {
 }
 
 fn get_ip_addr() -> Option<String> {
-    let output = sh("lipc-get-prop com.lab126.wifid 711", "Failed to get IP address").ok()?;
+    let output = lipc_get("wifid", "711").ok()?;
 
     for line in output.lines() {
         if line.contains("4.1  IP") {
@@ -438,7 +428,7 @@ fn load_ssh_config() -> Result<SshConfig, String> {
 }
 
 fn usb_ssh_enabled() -> bool {
-    if let Ok(status) = sh("lipc-get-prop com.lab126.volumd useUsbForNetwork", "g_ether status check failed") {
+    if let Ok(status) = lipc_get("volumd", "useUsbForNetwork") {
         status.trim() == "1"
     } else {
         false
@@ -463,13 +453,29 @@ fn recovery_enable_volumd() -> Result<(), String> {
     unsafe {
         if let Some(_) = recovery_mode() && !VOLUMD_STARTED {
             //Initctl always errors anyway, we silence it. Still throws if the conf is missing, etc., + lipcd should be started at this stage.
-            sh("initctl start volumd >/dev/null 2>&1", "Failed to initialise volumd")?;
+            boot_enable("volumd")?;
             thread::sleep(Duration::from_millis(500));
 
-            sh("initctl start usbnetd >/dev/null 2>&1", "Failed to initialise usbnetd")?;
+            boot_enable("usbnetd")?;
             thread::sleep(Duration::from_millis(500));
 
             VOLUMD_STARTED = true;
+        }
+    }
+
+    Ok(())
+}
+
+static mut WIFID_STARTED: bool = false;
+
+#[allow(static_mut_refs)]
+fn recovery_enable_wifid() -> Result<(), String> {
+    unsafe {
+        if let Some(_) = recovery_mode() && !WIFID_STARTED {
+            boot_enable("wifid")?;
+            thread::sleep(Duration::from_millis(500));
+
+            WIFID_STARTED = true;
         }
     }
 
@@ -481,9 +487,9 @@ fn enable_usb_ssh() -> Result<(), String> {
     let config = load_ssh_config()?; 
 
     //Start USB networking
-    sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 1", "Failed to enable g_ether")?;
-    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbUnconfigured", "Failed to run usbUnconfigured")?;
-    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbPlugOut", "Failed to run usbPlugOut")?;
+    lipc_set("volumd", "useUsbForNetwork", "1", Some("-i --"))?;
+    lipc_event("hal", "usbUnconfigured", Some("-r 3 -d 2"))?;
+    lipc_event("hal", "usbPlugOut", Some("-r 3 -d 2"))?;
 
     let ip_cmd = format!("ifconfig usb0 {}", config.kindle_ip);
     sh(&ip_cmd, "Failed to set usb0 IP, uh-oh..!")?;
@@ -517,9 +523,9 @@ fn disable_usb_ssh() -> Result<(), String> {
 
     sh("ifconfig usb0 down", "Failed to bring usb0 interface down")?;
 
-    sh("lipc-set-prop -i -- com.lab126.volumd useUsbForNetwork 0", "Failed to disable g_ether")?;
-    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbUnconfigured", "Failed to run usbUnconfigured")?;
-    sh("lipc-send-event -r 3 -d 2 com.lab126.hal usbPlugOut", "Failed to run usbPlugOut")?;
+    lipc_set("volumd", "useUsbForNetwork", "0", Some("-i --"))?;
+    lipc_event("hal", "usbUnconfigured", Some("-r 3 -d 2"))?;
+    lipc_event("hal", "usbPlugOut", Some("-r 3 -d 2"))?;
 
     //Stop daemon
     sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
@@ -541,6 +547,7 @@ fn wifi_ssh_enabled() -> bool {
 }
 
 fn enable_wifi_ssh() -> Result<(), String> {
+    recovery_enable_wifid()?;
     let config = load_ssh_config()?;
 
     sh(&format!("iptables -A INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to allow incoming SSH connections over Wi-Fi!")?;
@@ -586,13 +593,13 @@ fn koreader_installed() -> bool {
 fn create_koreader_flag() -> Result<(), String> {
     //Upstart needs to gracefully handle termination anyway, and the UI and KOReader overwrite + conflict. Not fun.
     //These are stopped again in upstart, so there aren't conflicts when the boot sequence is resumed.
-    sh("initctl start powerd >/dev/null 2>&1", "Failed to start powerd!")?;
+    boot_enable("powerd")?;
     thread::sleep(Duration::from_millis(500));
 
-    sh("initctl start wifid >/dev/null 2>&1", "Failed to start wifid!")?;
+    boot_enable("wifid")?;
     thread::sleep(Duration::from_millis(500));
 
-    sh("initctl start cmd >/dev/null 2>&1", "Failed to start cmd!")?;
+    boot_enable("cmd")?;
     std::fs::write("/var/tmp/JOBMAN_START_KOREADER", b"").map_err(|e| e.to_string())?; 
 
     Ok(())
