@@ -5,6 +5,7 @@ import { BatteryHealth } from "pages/battery-health.slint";
 import { EnvironmentUpdate } from "pages/environment-update.slint";
 import { Background } from "background.slint";
 import { SSHUsbNet } from "pages/ssh-usb-net.slint";
+import { RecoveryManagement } from "pages/recovery-management.slint";
 
 /*
     This project scales relative to root.height, 
@@ -24,6 +25,7 @@ export component AppWindow inherits Window {
     in property <bool> usb-ssh-status: false;
     in property <bool> wifi-ssh-status: false;
     in property <int> battery-health: 100;
+    in property <bool> recovery-installation-status: false;
     private property <bool> updating-env: false; //Terminates GUI upon completion
     private property <bool> ota-renaming: false; //^Same
     private property <string> view: "home";
@@ -32,8 +34,8 @@ export component AppWindow inherits Window {
 
     in property <bool> koreader-status: false;
     in property <bool> recovery-userstore-mounted: false;
-    in-out property <bool> recovery-mounting-userstore: false;
-    in-out property <bool> recovery-generating-logs: false;
+    in-out property <bool> recovery-mounting-userstore: false; //The only reason these buttons have progress indicators/blocking is because they both have intensive FS operations, can take a while.
+    in-out property <bool> recovery-generating-logs: false; //^
     private property <bool> recovery-opening-koreader: false; //If opened, GUI terminates anyway, does not need an external update.
     callback recovery_mount_userstore();
     callback recovery_generate_logs();
@@ -44,6 +46,7 @@ export component AppWindow inherits Window {
     callback update_environment();
     callback usb_ssh_toggle();
     callback wifi_ssh_toggle();
+    callback recovery_toggle();
 
     Background {}
 
@@ -136,6 +139,7 @@ export component AppWindow inherits Window {
                 root-height: root.height;
                 title: "SSH & USB Networking";
                 description: root.boot-mode ? "Start an emergency SSH over USB server" : "Start an SSH server over USB or Wi-Fi";
+                disabled: root.recovery-userstore-mounted; //TODO: Only USB SSH needs blocking, set this in the page file.
                 clicked => { root.view = "ssh-usb-net" }
             }
 
@@ -188,8 +192,9 @@ export component AppWindow inherits Window {
 
             if !root.boot-mode: Card {
                root-height: root.height;
-               title: "Update Jobman";
-               description: "Check for jailbreak manager updates";
+               title: "Recovery Management";
+               description: "Toggle the experimental Jobman recovery system";
+               clicked => { root.view = "recovery-management" }
             }
         }
 
@@ -230,6 +235,14 @@ export component AppWindow inherits Window {
         if view == "battery-health": BatteryHealth {
             root-height: root.height;
             battery-health: root.battery-health;
+        }
+
+        if view == "recovery-management": RecoveryManagement {
+            root-height: root.height;
+            recovery-installation-status: root.recovery-installation-status;
+            recovery-toggle => {
+                root.recovery_toggle();
+            }
         }
     }
 

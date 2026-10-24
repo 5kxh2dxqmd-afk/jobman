@@ -1,0 +1,50 @@
+import { Button } from "../button.slint";
+
+export component RecoveryManagement inherits Rectangle {
+    in property <length> root-height;
+    in property <bool> recovery-installation-status;
+
+    callback recovery-toggle();
+
+    VerticalLayout {
+        height: root-height * 0.27;
+        y: root-height * 0.07;
+        alignment: center;
+        spacing: root-height * 0.02;
+
+        Text {
+            color: black;
+            wrap: word-wrap;
+            width: 100%;
+            font-size: root-height * 0.027;
+            font-family: "Inter";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            text: "This option will allow Jobman to run on boot, potentially mitigating bricks.\n\nHowever, although extensively tested, Jobman Recovery is experimental: do this at your own risk.";
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            Button {
+                root-height: root-height;
+                text: root.recovery-installation-status ? "Remove Recovery" : "Install Recovery";
+                width: root-height * 0.5;
+                clicked => {
+                    recovery-toggle();
+                }
+            }
+        }
+
+        Text {
+            text: "Learn more at https://kindlemodding.org/recovery";
+            color: #4b5563;
+            wrap: word-wrap;
+            width: 100%;
+            font-size: root.width * 0.03;
+            font-family: "Inter";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -1,4 +1,6 @@
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 //Abstraction
 pub fn sh(cmd: &str, err: &str) -> Result<String, String> {
@@ -49,6 +51,16 @@ pub fn boot_enable(service: &str) -> Result<(), String> {
     let command = format!("initctl start {service} >/dev/null 2>&1");
 
     sh(&command, &format!("Failed to enable boot service {service}"))?;
+    thread::sleep(Duration::from_millis(500));
+    Ok(())
+}
+pub fn rootfs_writeable() -> Result<(), String> {
+    sh("mntroot rw", "Failed to mount the rootfs as writeable")?;
+    Ok(())
+}
+
+pub fn rootfs_readonly() -> Result<(), String> {
+    sh("mntroot ro", "Failed to mount the rootfs as read-only")?;
     Ok(())
 }
 
