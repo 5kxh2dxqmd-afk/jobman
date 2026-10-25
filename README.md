@@ -12,16 +12,14 @@
 
 ## Features
 
-- Current:
-    - Update blocking/unblocking
-    - Battery health estimates
-    - Environment updates
-    - Self-updater
-    - USB SSH (`g_ether`)
-    - Wi-Fi SSH (`iptables`)
-- Planned:
-    - Update sideloading (akin to Magisk sideload to inactive slot)
-    - UI for mounting root overlays on reboot (rootless)
+- Update blocking/unblocking
+- Battery health estimates
+- Environment updates
+- USB SSH 
+- Wi-Fi SSH
+- Recovery mode
+- Log generation
+- Our mascot, Jay Bee! 
 
 ## Building
 
