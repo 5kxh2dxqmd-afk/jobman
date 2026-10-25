@@ -491,7 +491,7 @@ fn disable_usb_ssh() -> Result<(), String> {
     lipc_event("hal", "usbPlugOut", Some("-r 3 -d 2"))?;
 
     //Stop daemon
-    kill_process("dropbearmulti dropbear")?;
+    kill_process("dropbearmulti")?;
     Ok(())
 }
 
@@ -543,7 +543,7 @@ fn disable_wifi_ssh() -> Result<(), String> {
     sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH connections iptables rule")?;
 
     //Stop daemon
-    kill_process("dropbearmulti dropbear")?;
+    kill_process("dropbearmulti")?;
     Ok(())
 }
 
