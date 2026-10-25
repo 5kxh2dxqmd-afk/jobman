@@ -33,11 +33,8 @@ export component AppWindow inherits Window {
     in-out property <string> error: "An unknown error occurred. Please retry at another time.";
 
     in property <bool> koreader-status: false;
-    in property <bool> recovery-userstore-mounted: false;
-    in-out property <bool> recovery-mounting-userstore: false; //The only reason these buttons have progress indicators/blocking is because they both have intensive FS operations, can take a while.
-    in-out property <bool> recovery-generating-logs: false; //^
+    in-out property <bool> recovery-generating-logs: false; //The only reason this buttons has progress indicators/blocking is because it has intensive FS operations, can take a while.
     private property <bool> recovery-opening-koreader: false; //If opened, GUI terminates anyway, does not need an external update.
-    callback recovery_mount_userstore();
     callback recovery_generate_logs();
     callback create_koreader_flag();
 
@@ -126,7 +123,7 @@ export component AppWindow inherits Window {
 
         if view == "home": VerticalLayout {
             y: root.height * 0;
-            spacing: root.boot-mode ? root.height * 0.015 : root.height * 0.01; 
+            spacing: root.height * 0.01; 
 
             if !root.boot-mode: Card {
                root-height: root.height;
@@ -139,21 +136,9 @@ export component AppWindow inherits Window {
                 root-height: root.height;
                 title: "SSH & USB Networking";
                 description: root.boot-mode ? "Start an emergency SSH over USB server" : "Start an SSH server over USB or Wi-Fi";
-                disabled: root.recovery-userstore-mounted; //TODO: Only USB SSH needs blocking, set this in the page file.
                 clicked => { root.view = "ssh-usb-net" }
             }
-
-            if root.boot-mode: Card {
-                root-height: root.height;
-                title: root.recovery-mounting-userstore ? (root.recovery-userstore-mounted ? "Unmounting Userstore..." : "Mounting Userstore...") : (root.recovery-userstore-mounted ? "Unmount Userstore" : "Mount Userstore");
-                description: "Mount the Kindle over USB";
-                disabled: root.recovery-mounting-userstore;
-                clicked => {
-                    root.recovery-mounting-userstore = true;
-                    recovery_mount_userstore();
-                }
-            }
-
+            
             if root.boot-mode: Card {
                 root-height: root.height;
                 title: root.recovery-generating-logs ? "Generating Logs..." : "Generate Logs";
@@ -174,6 +159,13 @@ export component AppWindow inherits Window {
                     root.recovery-opening-koreader = true;
                     create_koreader_flag();
                 }
+            }
+
+            if root.boot-mode: Image {
+                source: @image-url("bee.png");
+                width: 100%;
+                height: root.height * 0.2;
+                image-fit: contain;
             }
 
             if !root.boot-mode: Card {
