@@ -1,13 +1,12 @@
 slint::include_modules!();
 use std::path::Path;
-use std::process::Command;
 use serde::Deserialize;
 use std::fs;
 use std::io::{Write};
 use std::env;
 
 mod helpers;
-use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable, rootfs_writeable, rootfs_readonly};
+use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable, rootfs_writeable, rootfs_readonly, read_path, kill_process, reboot};
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
@@ -101,8 +100,7 @@ fn main() {
         let _ = slint::invoke_from_event_loop(move || {
             match update_env() {
                 Ok(_) => {
-                    let _ = Command::new("sh").args(["-c", "sleep 1 && reboot"]).spawn();
-                    std::process::exit(0);
+                    std::process::exit(0); //JB.sh performs a GUI reboot.
                 }
                 Err(error_message) => {
                     if let Some(ui) = run_weak.upgrade() {
@@ -280,11 +278,7 @@ fn block_ota() -> Result<(), String> {
     )?;
 
     rootfs_readonly()?;
-
-    Command::new("sh")
-        .args(["-c", "sleep 3 && reboot"])
-        .spawn()
-        .map_err(|e| format!("Failed to reboot Kindle: {e}"))?;
+    reboot()?;
 
     Ok(()) 
 }
@@ -310,11 +304,7 @@ fn enable_ota() -> Result<(), String> {
     )?;
 
     rootfs_readonly()?;
-
-    Command::new("sh")
-        .args(["-c", "sleep 3 && reboot"])
-        .spawn()
-        .map_err(|e| format!("Failed to reboot Kindle: {e}"))?;
+    reboot()?;
 
     Ok(()) 
 }
@@ -351,7 +341,7 @@ fn battery_health() -> Result<i32, String> {
     }
 
     let mah = sh("gasgauge-info -m", "Failed to retrieve battery mAh")?;
-    let original_mah = sh("cat /sys/class/power_supply/bd*_bat/charge_full_design", "Failed to read battery initial capacity")?;
+    let original_mah = read_path("/sys/class/power_supply/bd*_bat/charge_full_design")?;
     let capav = lipc_get("powerd", "battLevel")?;
 
     let mah: f64 = mah
@@ -421,7 +411,7 @@ fn load_ssh_config() -> Result<SshConfig, String> {
 
 fn usb_connected() -> Result<(), String>  {
     let err = "Please plug your Kindle into a computer before attempting to disable USB SSH!";
-    let status = sh("cat /sys/class/udc/*.usb/state", "Failed to check USB state")?;
+    let status = read_path("/sys/class/udc/*.usb/state")?;
     
     if status.trim() == "configured" {
         Ok(())
@@ -501,7 +491,7 @@ fn disable_usb_ssh() -> Result<(), String> {
     lipc_event("hal", "usbPlugOut", Some("-r 3 -d 2"))?;
 
     //Stop daemon
-    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    kill_process("dropbearmulti dropbear")?;
     Ok(())
 }
 
@@ -553,7 +543,7 @@ fn disable_wifi_ssh() -> Result<(), String> {
     sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH connections iptables rule")?;
 
     //Stop daemon
-    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    kill_process("dropbearmulti dropbear")?;
     Ok(())
 }
 
