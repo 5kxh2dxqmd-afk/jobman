@@ -7,8 +7,9 @@
 
 *Like [my](https://penguins184.xyz/) work? Consider donating or just starring my repo! :)*
 
-<img width="350" height="500" alt="image" src="https://github.com/user-attachments/assets/1de9a1cb-c071-4f6b-aee1-af48b05b0da2" />
+<img width="350" height="500" alt="recovery" src="https://github.com/user-attachments/assets/ef95ba78-2495-47e2-be9d-b612a12d8e67" />
 
+P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 
 ## Features
 
