@@ -1,14 +1,14 @@
 slint::include_modules!();
+use core::error;
 use std::path::Path;
 use std::process::Command;
 use serde::Deserialize;
 use std::fs;
+use std::io::{Write};
 use std::env;
-use std::thread;
-use std::time::Duration;
 
 mod helpers;
-use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable};
+use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable, rootfs_writeable, rootfs_readonly};
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
@@ -62,6 +62,7 @@ fn main() {
     app.set_usb_ssh_status(usb_ssh_enabled());
     app.set_wifi_ssh_status(wifi_ssh_enabled());
     app.set_koreader_status(koreader_installed());
+    app.set_recovery_installation_status(recovery_installed());
     match battery_health() {
         Ok(health) => {
             app.set_battery_health(health);
@@ -150,6 +151,28 @@ fn main() {
             };
 
             app.set_wifi_ssh_status(wifi_ssh_enabled()); //Sync
+
+            if let Err(error_message) = result {
+                app.set_error(error_message.into());
+                app.set_show_error(true);
+            }
+        });
+    });
+
+    let recovery_toggle_weak = app_weak.clone();
+    app.on_recovery_toggle(move || {
+        let run_weak = recovery_toggle_weak.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = run_weak.upgrade() else { return };
+            let status = app.get_recovery_installation_status();
+
+            let result = if status {
+                remove_recovery()
+            } else {
+                install_recovery()
+            };
+
+            app.set_recovery_installation_status(recovery_installed());
 
             if let Err(error_message) = result {
                 app.set_error(error_message.into());
@@ -270,7 +293,7 @@ fn chattr_path() -> &'static str {
 fn block_ota() -> Result<(), String> {
     let chattr = chattr_path();
 
-    sh("mntroot rw", "Failed to mount RootFS as writeable")?;
+    rootfs_writeable()?;
 
     sh(
         &format!("{chattr} -i /usr/bin/otaupd /usr/bin/otav3"),
@@ -287,7 +310,7 @@ fn block_ota() -> Result<(), String> {
         "Could not make backup files immutable via chattr"
     )?;
 
-    let _ = sh("mntroot ro", "");
+    rootfs_readonly()?;
 
     Command::new("sh")
         .args(["-c", "sleep 3 && reboot"])
@@ -300,7 +323,7 @@ fn block_ota() -> Result<(), String> {
 fn enable_ota() -> Result<(), String> {
     let chattr = chattr_path();
 
-    sh("mntroot rw", "Failed to mount RootFS as writeable")?;
+    rootfs_writeable()?;
 
     sh(
         &format!("{chattr} -i /usr/bin/otaupd.bck /usr/bin/otav3.bck"),
@@ -317,7 +340,7 @@ fn enable_ota() -> Result<(), String> {
         "Could not make active binaries immutable via chattr"
     )?;
 
-    let _ = sh("mntroot ro", ""); 
+    rootfs_readonly()?;
 
     Command::new("sh")
         .args(["-c", "sleep 3 && reboot"])
@@ -427,14 +450,6 @@ fn load_ssh_config() -> Result<SshConfig, String> {
     Ok(config)
 }
 
-fn usb_ssh_enabled() -> bool {
-    if let Ok(status) = lipc_get("volumd", "useUsbForNetwork") {
-        status.trim() == "1"
-    } else {
-        false
-    }
-}
-
 fn usb_connected() -> Result<(), String>  {
     let err = "Please plug your Kindle into a computer before attempting to disable USB SSH!";
     let status = sh("cat /sys/class/udc/*.usb/state", "Failed to check USB state")?;
@@ -454,10 +469,7 @@ fn recovery_enable_volumd() -> Result<(), String> {
         if let Some(_) = recovery_mode() && !VOLUMD_STARTED {
             //Initctl always errors anyway, we silence it. Still throws if the conf is missing, etc., + lipcd should be started at this stage.
             boot_enable("volumd")?;
-            thread::sleep(Duration::from_millis(500));
-
             boot_enable("usbnetd")?;
-            thread::sleep(Duration::from_millis(500));
 
             VOLUMD_STARTED = true;
         }
@@ -473,13 +485,20 @@ fn recovery_enable_wifid() -> Result<(), String> {
     unsafe {
         if let Some(_) = recovery_mode() && !WIFID_STARTED {
             boot_enable("wifid")?;
-            thread::sleep(Duration::from_millis(500));
 
             WIFID_STARTED = true;
         }
     }
 
     Ok(())
+}
+
+fn usb_ssh_enabled() -> bool {
+    if let Ok(status) = lipc_get("volumd", "useUsbForNetwork") {
+        status.trim() == "1"
+    } else {
+        false
+    }
 }
 
 fn enable_usb_ssh() -> Result<(), String> {
@@ -585,6 +604,92 @@ fn disable_wifi_ssh() -> Result<(), String> {
     Ok(())
 }
 
+fn recovery_installed() -> bool {
+    Path::new("/etc/upstart/jobman_recovery.conf").try_exists().unwrap_or(false)
+}
+
+pub fn install_recovery() -> Result<(), String> {
+    let setup_conf = "/etc/upstart/system_setup_after_shpm.conf";
+    let recovery_conf_src = "/mnt/us/jobman/jobman_recovery.conf";
+    let recovery_conf_dest = "/etc/upstart/jobman_recovery.conf";
+
+    rootfs_writeable()?;
+
+    let content = fs::read_to_string(setup_conf)
+        .map_err(|e| format!("Failed to read {}: {}", setup_conf, e))?;
+        
+    let mut filtered_lines = Vec::new();
+    for line in content.lines() {
+        if !line.contains("start on started system_setup") {
+            filtered_lines.push(line);
+        }
+    }
+    
+    let mut file = fs::File::create(setup_conf)
+        .map_err(|e| format!("Failed to open {} for writing: {}", setup_conf, e))?;
+        
+    file.write_all(filtered_lines.join("\n").as_bytes())
+        .map_err(|e| format!("Failed to write to {}: {}", setup_conf, e))?;
+        
+    if !filtered_lines.is_empty() { 
+        file.write_all(b"\n")
+            .map_err(|e| format!("Failed to add newline to {}: {}", setup_conf, e))?; 
+    }
+
+    fs::copy(recovery_conf_src, recovery_conf_dest)
+        .map_err(|e| format!("Failed to copy recovery config from {} to {}: {}", recovery_conf_src, recovery_conf_dest, e))?;
+
+    rootfs_readonly()?;
+    Ok(())
+}
+
+pub fn remove_recovery() -> Result<(), String> {
+    let setup_conf = "/etc/upstart/system_setup_after_shpm.conf";
+    let recovery_conf_dest = "/etc/upstart/jobman_recovery.conf";
+    let target_trigger = "start on started system_setup";
+    let anchor_comment = "#This upstart node handles configuring of system after coming out of shipment mode";
+
+    rootfs_writeable()?;
+
+    let content = fs::read_to_string(setup_conf)
+        .map_err(|e| format!("Failed to read {}: {}", setup_conf, e))?;
+    
+    if !content.contains(target_trigger) {
+        let mut new_lines = Vec::new();
+        let mut found_anchor = false;
+        
+        for line in content.lines() {
+            new_lines.push(line.to_string());
+            if line.contains(anchor_comment) {
+                new_lines.push(target_trigger.to_string());
+                found_anchor = true;
+            }
+        }
+
+        if !found_anchor {
+            rootfs_readonly()?; 
+            return Err(format!("Could not find the anchor comment in {} to restore shpm trigger! Uh-oh!", setup_conf));
+        }
+        
+        let mut file = fs::File::create(setup_conf)
+            .map_err(|e| format!("Failed to open {} for writing: {}", setup_conf, e))?;
+            
+        file.write_all(new_lines.join("\n").as_bytes())
+            .map_err(|e| format!("Failed to write to {}: {}", setup_conf, e))?;
+            
+        if !new_lines.is_empty() { 
+            file.write_all(b"\n")
+                .map_err(|e| format!("Failed to add newline to {}: {}", setup_conf, e))?; 
+        }
+    }
+
+    fs::remove_file(recovery_conf_dest)
+        .map_err(|e| format!("Failed to delete {}: {}", recovery_conf_dest, e))?;
+
+    rootfs_readonly()?;
+    Ok(())
+}
+
 //Recovery functions/child_process calls
 fn koreader_installed() -> bool {
     Path::new("/mnt/us/koreader").try_exists().unwrap_or(false)
@@ -594,26 +699,57 @@ fn create_koreader_flag() -> Result<(), String> {
     //Upstart needs to gracefully handle termination anyway, and the UI and KOReader overwrite + conflict. Not fun.
     //These are stopped again in upstart, so there aren't conflicts when the boot sequence is resumed.
     boot_enable("powerd")?;
-    thread::sleep(Duration::from_millis(500));
-
     boot_enable("wifid")?;
-    thread::sleep(Duration::from_millis(500));
-
     boot_enable("cmd")?;
     std::fs::write("/var/tmp/JOBMAN_START_KOREADER", b"").map_err(|e| e.to_string())?; 
 
     Ok(())
 }
 
-fn recovery_mount_userstore() -> Result<(), String> {
-    sh("/etc/upstart/userstore start;", "Failed to mount userstore (USB)!")?;
+fn userstore_block_device() -> Result<String, String> {
+    let mounts = fs::read_to_string("/proc/mounts")
+        .map_err(|e| format!("Failed to read /proc/mounts; {e}"))?;
 
-    Ok(())
+    for line in mounts.lines() {
+        if line.contains("/mnt/base-us") {
+            if let Some(block) = line.split_whitespace().next() {
+                return Ok(block.to_string());
+            }
+        }
+    }
+
+    Ok("/dev/loop/0".to_string())
+}
+
+fn get_lun_file_path() -> Result<String, String> {
+    fs::read_dir("/sys/devices/platform")
+        .map_err(|e| format!("Platform read error: {e}"))?
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.extension().map_or(false, |ext| ext == "usb"))
+        .map(|path| path.join("gadget/lun0/file"))
+        .filter(|file| file.is_file())
+        .map(|file| file.to_string_lossy().into_owned())
+        .ok_or_else(|| "Could not locate the mass storage gadget node!".to_string())
 }
 
 fn recovery_umount_userstore() -> Result<(), String> {
-    sh("/etc/upstart/userstore stop;", "Failed to unmount userstore (USB)!")?;
+    if usb_ssh_enabled() {
+        disable_usb_ssh()?;
+    } //Disable now, since we enable the other kernel module. The UI will block enabling SSH whilst userstore is mounted.
 
+    let block_dev = userstore_block_device()?;
+    let lun_file = get_lun_file_path()?;
+
+    sh("/etc/upstart/userstore stop", "Failed to stop Amazon userstore service!")?;
+    fs::write(&lun_file, format!("{block_dev}\n")).map_err(|e| format!("Write failed: {e}"))?;
+    Ok(())
+}
+
+fn recovery_mount_userstore() -> Result<(), String> {
+    let lun_file = get_lun_file_path()?;
+    let _ = fs::write(&lun_file, "\n");
+    sh("/etc/upstart/userstore start", "Failed to start Amazon userstore service!")?;
     Ok(())
 }
 
