@@ -31,6 +31,7 @@ P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 - 5.17.1.0.3 PW5
 - 5.18.1.1.1 PW4
 - 5.20.1 KS1
+- 5.20.1 CS
 
 ## Building
 
