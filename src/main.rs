@@ -1,14 +1,12 @@
 slint::include_modules!();
-use core::error;
 use std::path::Path;
-use std::process::Command;
 use serde::Deserialize;
 use std::fs;
 use std::io::{Write};
 use std::env;
 
 mod helpers;
-use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable, rootfs_writeable, rootfs_readonly};
+use helpers::{sh, lipc_set, lipc_get, lipc_event, boot_enable, rootfs_writeable, rootfs_readonly, read_path, kill_process, reboot};
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 static INTER: &[u8] = include_bytes!("./inter.ttf");
@@ -102,8 +100,7 @@ fn main() {
         let _ = slint::invoke_from_event_loop(move || {
             match update_env() {
                 Ok(_) => {
-                    let _ = Command::new("sh").args(["-c", "sleep 1 && reboot"]).spawn();
-                    std::process::exit(0);
+                    std::process::exit(0); //JB.sh performs a GUI reboot.
                 }
                 Err(error_message) => {
                     if let Some(ui) = run_weak.upgrade() {
@@ -177,36 +174,6 @@ fn main() {
             if let Err(error_message) = result {
                 app.set_error(error_message.into());
                 app.set_show_error(true);
-            }
-        });
-    });
-
-    let recovery_userstore_weak = app_weak.clone();
-    app.on_recovery_mount_userstore(move || {
-        let run_weak = recovery_userstore_weak.clone();
-        let _ = slint::invoke_from_event_loop(move || {
-            let Some(_app) = run_weak.upgrade() else { return };
-            let app = run_weak.unwrap();
-
-            let status = app.get_recovery_userstore_mounted();
-        
-            let result = if status {
-                recovery_umount_userstore()
-            } else {
-                recovery_mount_userstore()
-            };
-
-            match result {
-                Ok(_) => {
-                    app.set_recovery_mounting_userstore(false);
-                    app.set_recovery_userstore_mounted(!status);
-                }
-                Err(error_message) => {
-                    app.set_recovery_mounting_userstore(false);
-                
-                    app.set_error(error_message.into());
-                    app.set_show_error(true);
-                }
             }
         });
     });
@@ -311,11 +278,7 @@ fn block_ota() -> Result<(), String> {
     )?;
 
     rootfs_readonly()?;
-
-    Command::new("sh")
-        .args(["-c", "sleep 3 && reboot"])
-        .spawn()
-        .map_err(|e| format!("Failed to reboot Kindle: {e}"))?;
+    reboot()?;
 
     Ok(()) 
 }
@@ -341,11 +304,7 @@ fn enable_ota() -> Result<(), String> {
     )?;
 
     rootfs_readonly()?;
-
-    Command::new("sh")
-        .args(["-c", "sleep 3 && reboot"])
-        .spawn()
-        .map_err(|e| format!("Failed to reboot Kindle: {e}"))?;
+    reboot()?;
 
     Ok(()) 
 }
@@ -382,7 +341,7 @@ fn battery_health() -> Result<i32, String> {
     }
 
     let mah = sh("gasgauge-info -m", "Failed to retrieve battery mAh")?;
-    let original_mah = sh("cat /sys/class/power_supply/bd*_bat/charge_full_design", "Failed to read battery initial capacity")?;
+    let original_mah = read_path("/sys/class/power_supply/bd*_bat/charge_full_design")?;
     let capav = lipc_get("powerd", "battLevel")?;
 
     let mah: f64 = mah
@@ -452,7 +411,7 @@ fn load_ssh_config() -> Result<SshConfig, String> {
 
 fn usb_connected() -> Result<(), String>  {
     let err = "Please plug your Kindle into a computer before attempting to disable USB SSH!";
-    let status = sh("cat /sys/class/udc/*.usb/state", "Failed to check USB state")?;
+    let status = read_path("/sys/class/udc/*.usb/state")?;
     
     if status.trim() == "configured" {
         Ok(())
@@ -472,21 +431,6 @@ fn recovery_enable_volumd() -> Result<(), String> {
             boot_enable("usbnetd")?;
 
             VOLUMD_STARTED = true;
-        }
-    }
-
-    Ok(())
-}
-
-static mut WIFID_STARTED: bool = false;
-
-#[allow(static_mut_refs)]
-fn recovery_enable_wifid() -> Result<(), String> {
-    unsafe {
-        if let Some(_) = recovery_mode() && !WIFID_STARTED {
-            boot_enable("wifid")?;
-
-            WIFID_STARTED = true;
         }
     }
 
@@ -547,7 +491,7 @@ fn disable_usb_ssh() -> Result<(), String> {
     lipc_event("hal", "usbPlugOut", Some("-r 3 -d 2"))?;
 
     //Stop daemon
-    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    kill_process("dropbearmulti")?;
     Ok(())
 }
 
@@ -566,7 +510,6 @@ fn wifi_ssh_enabled() -> bool {
 }
 
 fn enable_wifi_ssh() -> Result<(), String> {
-    recovery_enable_wifid()?;
     let config = load_ssh_config()?;
 
     sh(&format!("iptables -A INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to allow incoming SSH connections over Wi-Fi!")?;
@@ -600,7 +543,7 @@ fn disable_wifi_ssh() -> Result<(), String> {
     sh(&format!("iptables -D INPUT -i wlan0 -p tcp --dport {} -j ACCEPT", config.port), "Failed to remove incoming SSH connections iptables rule")?;
 
     //Stop daemon
-    sh("pkill -9 -f \"dropbearmulti dropbear\"", "Failed to kill dropbear daemon!")?;
+    kill_process("dropbearmulti")?;
     Ok(())
 }
 
@@ -703,53 +646,6 @@ fn create_koreader_flag() -> Result<(), String> {
     boot_enable("cmd")?;
     std::fs::write("/var/tmp/JOBMAN_START_KOREADER", b"").map_err(|e| e.to_string())?; 
 
-    Ok(())
-}
-
-fn userstore_block_device() -> Result<String, String> {
-    let mounts = fs::read_to_string("/proc/mounts")
-        .map_err(|e| format!("Failed to read /proc/mounts; {e}"))?;
-
-    for line in mounts.lines() {
-        if line.contains("/mnt/base-us") {
-            if let Some(block) = line.split_whitespace().next() {
-                return Ok(block.to_string());
-            }
-        }
-    }
-
-    Ok("/dev/loop/0".to_string())
-}
-
-fn get_lun_file_path() -> Result<String, String> {
-    fs::read_dir("/sys/devices/platform")
-        .map_err(|e| format!("Platform read error: {e}"))?
-        .flatten()
-        .map(|entry| entry.path())
-        .find(|path| path.extension().map_or(false, |ext| ext == "usb"))
-        .map(|path| path.join("gadget/lun0/file"))
-        .filter(|file| file.is_file())
-        .map(|file| file.to_string_lossy().into_owned())
-        .ok_or_else(|| "Could not locate the mass storage gadget node!".to_string())
-}
-
-fn recovery_umount_userstore() -> Result<(), String> {
-    if usb_ssh_enabled() {
-        disable_usb_ssh()?;
-    } //Disable now, since we enable the other kernel module. The UI will block enabling SSH whilst userstore is mounted.
-
-    let block_dev = userstore_block_device()?;
-    let lun_file = get_lun_file_path()?;
-
-    sh("/etc/upstart/userstore stop", "Failed to stop Amazon userstore service!")?;
-    fs::write(&lun_file, format!("{block_dev}\n")).map_err(|e| format!("Write failed: {e}"))?;
-    Ok(())
-}
-
-fn recovery_mount_userstore() -> Result<(), String> {
-    let lun_file = get_lun_file_path()?;
-    let _ = fs::write(&lun_file, "\n");
-    sh("/etc/upstart/userstore start", "Failed to start Amazon userstore service!")?;
     Ok(())
 }
 

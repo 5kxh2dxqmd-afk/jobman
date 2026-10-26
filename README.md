@@ -7,21 +7,20 @@
 
 *Like [my](https://penguins184.xyz/) work? Consider donating or just starring my repo! :)*
 
-<img width="350" height="500" alt="image" src="https://github.com/user-attachments/assets/1de9a1cb-c071-4f6b-aee1-af48b05b0da2" />
+<img width="350" height="500" alt="recovery" src="https://github.com/user-attachments/assets/ef95ba78-2495-47e2-be9d-b612a12d8e67" />
 
+P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 
 ## Features
 
-- Current:
-    - Update blocking/unblocking
-    - Battery health estimates
-    - Environment updates
-    - Self-updater
-    - USB SSH (`g_ether`)
-    - Wi-Fi SSH (`iptables`)
-- Planned:
-    - Update sideloading (akin to Magisk sideload to inactive slot)
-    - UI for mounting root overlays on reboot (rootless)
+- Update blocking/unblocking
+- Battery health estimates
+- Environment updates
+- USB SSH 
+- Wi-Fi SSH
+- Recovery mode
+- Log generation
+- Our mascot, Jay Bee! 
 
 ## Building
 

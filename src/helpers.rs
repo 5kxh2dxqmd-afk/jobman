@@ -1,6 +1,7 @@
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
+use glob::glob;
 
 //Abstraction
 pub fn sh(cmd: &str, err: &str) -> Result<String, String> {
@@ -64,4 +65,32 @@ pub fn rootfs_readonly() -> Result<(), String> {
     Ok(())
 }
 
-//TODO: kill process func, read [cat] file func.
+pub fn read_path(path: &str) -> Result<String, String> {
+    let path = glob::glob(path)
+        .map_err(|e| e.to_string())?
+        .next()
+        .ok_or_else(|| "Path is nonexistent!".to_string())? 
+        .map_err(|e| e.to_string())?;
+
+    let physical = path.canonicalize().map_err(|e| e.to_string())?;
+
+    std::fs::read_to_string(&path)
+        .map(|s| s.trim().to_string())
+        .map_err(|e| format!("Failed to read {}: {}", physical.to_string_lossy(), e))
+}
+
+pub fn kill_process(process: &str) -> Result<(), String> {
+    sh(&format!("pkill -9 -f {process}"), &format!("Failed to kill {process}!"))?;
+
+    Ok(())
+}
+
+pub fn reboot() -> Result<(), String> {
+    Command::new("sh")
+        .args(["-c", "sleep 3 && reboot"])
+        .spawn()
+        .map_err(|e| format!("Failed to reboot Kindle: {e}"))?;
+
+    //Yay, we're dead. Who freaking cares.
+    Ok(())
+}
