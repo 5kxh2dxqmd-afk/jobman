@@ -22,6 +22,17 @@ P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 - Log generation
 - Our mascot, Jay Bee! 
 
+## Tested devices (default, & recovery mode)
+
+- 5.19.2 KT5
+- 5.20.1 KT6
+- 5.16.21 PW4
+- 5.20.1 PW6
+- 5.17.1.0.3 PW5
+- 5.18.1.1.1 PW4
+- 5.20.1 KS1
+- 5.20.1 CS
+
 ## Building
 
 Great thanks to [slint-kindle-backend](https://github.com/sverrejb/slint-kindle-backend).
