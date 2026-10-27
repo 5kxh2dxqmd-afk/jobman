@@ -11,6 +11,17 @@
 
 P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 
+## Installation 
+
+Jobman is hosted on the official KindleModding KPM [repository](https://repo.kindlemodding.org/).
+
+To install, run the following in the search bar (one at a time):
+
+```
+;kpm update
+;kpm install jobman
+```
+
 ## Features
 
 - Update blocking/unblocking
