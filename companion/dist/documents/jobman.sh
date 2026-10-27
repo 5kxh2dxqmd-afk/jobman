@@ -18,7 +18,7 @@ sleep 2 # Let the launcher finish and return to the home screen first
 stop statusbar >/dev/null 2>&1
 lipc-set-prop com.lab126.appmgrd start app://com.lab126.webview/?url=x
 
-# Trigger installation process: this is also ran by jb.sh, but we keep it here if the user needs to (for whatever reason) download manually, or something is broken so they can re-execute.
+# Trigger installation process: recovery items are mostly kept for legacy purposes, to be removed.
 if [ ! -f /mnt/us/jobman/JOBMAN_INSTALLED ]; then
     # Ensure binaries are executable
     chmod +x /mnt/us/jobman/bin/sftp-server
