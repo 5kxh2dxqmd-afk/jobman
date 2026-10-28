@@ -83,4 +83,5 @@ Inter, Libre Baskerville uses **SIL Open Font License (OFL) Version 1.1**. This 
 - AcidWeb: Coloursoft launching support (slint-kindle-backend)
 - SverreJB: Original slint-kindle-backend library itself
 - Sparklerfish: Tested and helped out with SSH and launching bits and bobs!
-- Clint, Ava: Further testing.
+- Clint, Ava: Further testing,
+- Katadelos: Kindle emulator creation which allowed for the safe testing of recovery mode.
