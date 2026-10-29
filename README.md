@@ -75,6 +75,13 @@ Use `slint-viewer`, bundled with the Slint vscode plugin, or:
 
 Run `./build.sh kindle`, and copy both folders in `build/` to the device.
 
-## Notes
+## Notes & Credits
 
 Inter, Libre Baskerville uses **SIL Open Font License (OFL) Version 1.1**. This project is licensed under **GNU GPLv3**.
+
+- Penguins184: Creator of Jobman
+- AcidWeb: Coloursoft launching support (slint-kindle-backend)
+- SverreJB: Original slint-kindle-backend library itself
+- Sparklerfish: Tested and helped out with SSH and launching bits and bobs!
+- Clint, Ava: Further testing,
+- Katadelos: Kindle emulator creation which allowed for the safe testing of recovery mode.
