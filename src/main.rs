@@ -50,6 +50,11 @@ fn main() {
         }
     }
 
+    match default_password() {
+        Some(pass) => app.set_ssh_password(pass.into()),
+        None => app.set_ssh_password("N/A".into()),
+    };
+
     if let Some(reason) = recovery_mode() {
         app.set_boot_mode(true);
         app.set_boot_reason(reason.into());
@@ -341,7 +346,7 @@ fn battery_health() -> Result<i32, String> {
     }
 
     let mah = sh("gasgauge-info -m", "Failed to retrieve battery mAh")?;
-    let original_mah = read_path("/sys/class/power_supply/bd*_bat/charge_full_design")?;
+    let original_mah = read_path("/sys/class/power_supply/*bat*/charge_full_design")?;
     let capav = lipc_get("powerd", "battLevel")?;
 
     let mah: f64 = mah
@@ -407,6 +412,17 @@ fn load_ssh_config() -> Result<SshConfig, String> {
         .map_err(|e| format!("Syntax error in config file: {}", e))?;
 
     Ok(config)
+}
+
+fn default_password() -> Option<String> {
+    let config = load_ssh_config().ok()?;
+
+    if config.allow_password_login {
+        Some(config.password)
+            .filter(|p| !p.is_empty()) 
+    } else {
+        Some("N/A".to_string())
+    }
 }
 
 fn usb_connected() -> Result<(), String>  {

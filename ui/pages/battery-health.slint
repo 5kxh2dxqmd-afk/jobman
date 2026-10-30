@@ -29,7 +29,7 @@ export component BatteryHealth inherits Rectangle {
             font-family: "Inter"; 
             horizontal-alignment: center;
             vertical-alignment: center;
-            text: root.battery-health + "%";
+            text: root.battery-health == -1 ? "N/A" : (root.battery-health + "%");
         }
 
         HorizontalLayout {
