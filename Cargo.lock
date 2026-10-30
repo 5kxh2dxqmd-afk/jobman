@@ -2548,7 +2548,7 @@ dependencies = [
 
 [[package]]
 name = "jobman"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "fontique 0.10.0",
  "glob",
