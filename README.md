@@ -11,6 +11,17 @@
 
 P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 
+## Installation 
+
+Jobman is hosted on the official KindleModding KPM [repository](https://repo.kindlemodding.org/).
+
+To install, run the following in the search bar (one at a time):
+
+```
+;kpm update
+;kpm install jobman
+```
+
 ## Features
 
 - Update blocking/unblocking
@@ -25,11 +36,10 @@ P.S The bee is called Jay Bee! - JB - get it? (thanks to Mergen for this pun!)
 ## Tested devices (default, & recovery mode)
 
 - 5.19.2 KT5
-- 5.20.1 KT6
-- 5.16.21 PW4
+- 5.20.1, 5.19.2 KT6
+- 5.16.21, 5.18.1.1.1 PW4
 - 5.20.1 PW6
 - 5.17.1.0.3 PW5
-- 5.18.1.1.1 PW4
 - 5.20.1 KS1
 - 5.20.1 CS
 
@@ -64,6 +74,13 @@ Use `slint-viewer`, bundled with the Slint vscode plugin, or:
 
 Run `./build.sh kindle`, and copy both folders in `build/` to the device.
 
-## Notes
+## Notes & Credits
 
 Inter, Libre Baskerville uses **SIL Open Font License (OFL) Version 1.1**. This project is licensed under **GNU GPLv3**.
+
+- Penguins184: Creator of Jobman
+- AcidWeb: Coloursoft launching support (slint-kindle-backend)
+- SverreJB: Original slint-kindle-backend library itself
+- Sparklerfish: Tested and helped out with SSH and launching bits and bobs!
+- Clint, Ava: Further testing,
+- Katadelos: Kindle emulator creation which allowed for the safe testing of recovery mode.
