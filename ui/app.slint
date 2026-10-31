@@ -24,8 +24,9 @@ export component AppWindow inherits Window {
     in property <bool> wifi-status: false;
     in property <bool> usb-ssh-status: false;
     in property <bool> wifi-ssh-status: false;
-    in property <int> battery-health: 100;
+    in property <int> battery-health: -1;
     in property <bool> recovery-installation-status: false;
+    in property <string> ssh-password: "N/A";
     private property <bool> updating-env: false; //Terminates GUI upon completion
     private property <bool> ota-renaming: false; //^Same
     private property <string> view: "home";
@@ -207,6 +208,7 @@ export component AppWindow inherits Window {
             wifi-ssh-status: root.wifi-ssh-status;
             boot-mode: root.boot-mode;
             wifi-status: root.wifi-status;
+            ssh-password: root.ssh-password;
             usb-ssh-toggle => {
                 root.usb_ssh_toggle();
             }

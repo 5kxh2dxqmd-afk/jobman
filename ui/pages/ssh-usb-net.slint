@@ -4,6 +4,7 @@ export component SSHUsbNet inherits Rectangle {
     in property <length> root-height;
     in property <string> usb-ssh-ip: "N/A";
     in property <string> wifi-ssh-ip: "N/A";
+    in property <string> ssh-password: "N/A";
     private property <string> connection-mode: root.usb-ssh-status ? "USB" : (root.wifi-ssh-status ? "Wi-Fi" : "N/A (select mode)");
     in property <bool> usb-ssh-status: false;
     in property <bool> wifi-ssh-status: false;
@@ -58,7 +59,10 @@ export component SSHUsbNet inherits Rectangle {
         }
 
         Text {
-            text: "IP: " + (!root.usb-ssh-status && !root.wifi-ssh-status ? "N/A (select mode)" : (root.usb-ssh-status ? root.usb-ssh-ip : root.wifi-ssh-ip))  + "\nMode: " + root.connection-mode + "\nConfig is mandated in ~/jobman/ssh/etc/config.toml";
+            text: "IP: " + (!root.usb-ssh-status && !root.wifi-ssh-status ? "N/A (select mode)" : (root.usb-ssh-status ? root.usb-ssh-ip : root.wifi-ssh-ip)) 
+            + "\nMode: " + root.connection-mode
+            + "\nPassword: " + root.ssh-password 
+            + "\nConfig is mandated in ~/jobman/ssh/etc/config.toml";
             color: #4b5563;
             wrap: word-wrap;
             width: 100%;
@@ -66,6 +70,7 @@ export component SSHUsbNet inherits Rectangle {
             font-family: "Inter";
             horizontal-alignment: center;
             vertical-alignment: center;
+            font-weight: 700;
         }
     }
 }
